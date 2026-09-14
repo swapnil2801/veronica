@@ -1,0 +1,26 @@
+# env & secrets
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# runtime state & logs
+server/logs/
+server/settings.json
+*.log
+
+# node (future)
+node_modules/
+dist/
+
+# OS/editor
+.DS_Store
+*.swp

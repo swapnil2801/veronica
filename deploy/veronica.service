@@ -1,0 +1,14 @@
+[Unit]
+Description=Veronica - Voice AI Command Center for Hermes
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/projects/veronica
+ExecStart=/home/ubuntu/projects/veronica/.venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 9140
+Restart=on-failure
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=default.target
