@@ -51,6 +51,17 @@ ELEVENLABS_VOICE_OPTIONS = [
     {"id": "pFZP5JQG7iQjIQuC4Bku", "label": "Lily — British female"},
 ]
 
+# --- Piper (fully local, offline TTS; runs on this VPS CPU) ---
+PIPER_BIN = Path.home() / "piper" / "piper" / "piper"
+PIPER_VOICES_DIR = Path.home() / "piper" / "voices"
+PIPER_VOICE = "en_GB-jenny_dioco-medium"
+PIPER_VOICE_OPTIONS = [
+    {"id": "en_GB-jenny_dioco-medium", "label": "Jenny — British female (default)"},
+    {"id": "en_GB-southern_english_female-low", "label": "Southern English — British female (fastest)"},
+    {"id": "en_US-lessac-medium", "label": "Lessac — US female"},
+    {"id": "hi_IN-priyamvada-medium", "label": "Priyamvada — Hindi female"},
+]
+
 # --- LLM ---
 LLM_BASE_URL = os.environ.get("VERONICA_LLM_BASE", "http://localhost:20128/v1")
 LLM_API_KEY = os.environ.get("VERONICA_LLM_KEY", "dummy")
@@ -131,7 +142,11 @@ def get_voice() -> str:
 
 def get_tts_engine() -> str:
     e = load_settings().get("tts_engine", "edge")
-    return e if e in ("edge", "elevenlabs") else "edge"
+    return e if e in ("edge", "elevenlabs", "piper") else "edge"
+
+
+def get_piper_voice() -> str:
+    return load_settings().get("piper_voice", PIPER_VOICE)
 
 
 def get_el_voice() -> str:

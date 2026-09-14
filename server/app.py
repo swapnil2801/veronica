@@ -70,6 +70,9 @@ async def api_settings():
         "el_voice": config.get_el_voice(),
         "el_voices": config.ELEVENLABS_VOICE_OPTIONS,
         "el_has_key": bool(config.get_elevenlabs_key()),
+        "piper_voice": config.get_piper_voice(),
+        "piper_voices": config.PIPER_VOICE_OPTIONS,
+        "piper_available": config.PIPER_BIN.exists(),
     }
 
 
@@ -102,16 +105,18 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
+    if "piper_voice" in payload and isinstance(payload["piper_voice"], str) and payload["piper_voice"].strip():
+        changed["piper_voice"] = payload["piper_voice"].strip()
     if changed:
         config.save_settings(changed)
         log.info("settings changed: %s", changed)
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
-            "el_voice": config.get_el_voice()}
+            "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -121,6 +126,10 @@ async def api_preview_voice(payload: dict):
     text = "Hello Swapnil, this is how I sound. Shall I keep this voice?"
     engine = payload.get("engine") or "edge"
     try:
+        if engine == "piper":
+            from . import tts as tts_mod
+            audio = await tts_mod._synth_piper(text, payload.get("voice"))
+            return Response(content=audio, media_type="audio/mpeg")
         if engine == "elevenlabs":
             from . import tts as tts_mod
             import json as _j

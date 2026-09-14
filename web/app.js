@@ -396,8 +396,9 @@ async function loadModels() {
 function renderEngines() {
   const g = $('engGrid'); g.innerHTML = '';
   const engines = [
-    { id:'edge', label:'Edge Neural', meta:'free · fast', ok:true },
-    { id:'elevenlabs', label:'ElevenLabs', meta:curSettings.el_has_key ? 'premium · key found' : 'no API key', ok:curSettings.el_has_key },
+    { id:'edge', label:'Edge Neural', meta:'free · cloud', ok:true },
+    { id:'piper', label:'Piper', meta:curSettings.piper_available ? 'free · runs on server · offline' : 'not installed', ok:curSettings.piper_available },
+    { id:'elevenlabs', label:'ElevenLabs', meta:curSettings.el_has_key ? 'premium · needs paid plan' : 'no API key', ok:curSettings.el_has_key },
   ];
   for (const e of engines) {
     const d = document.createElement('div');
@@ -415,9 +416,13 @@ function renderEngines() {
 function renderVoices() {
   const sv = $('selVoice');
   sv.innerHTML = '';
-  const el = curSettings.tts_engine === 'elevenlabs';
-  const list = el ? curSettings.el_voices : curSettings.voices;
-  const active = el ? curSettings.el_voice : curSettings.voice;
+  const eng = curSettings.tts_engine;
+  const list = eng === 'elevenlabs' ? curSettings.el_voices
+             : eng === 'piper' ? curSettings.piper_voices
+             : curSettings.voices;
+  const active = eng === 'elevenlabs' ? curSettings.el_voice
+               : eng === 'piper' ? curSettings.piper_voice
+               : curSettings.voice;
   for (const v of list) {
     const o = document.createElement('option');
     o.value = v.id; o.textContent = v.label;
@@ -448,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('selModel').addEventListener('change', e => saveSettings({ model: e.target.value }));
   $('selVoice').addEventListener('change', e => {
     if (curSettings.tts_engine === 'elevenlabs') { curSettings.el_voice = e.target.value; saveSettings({ el_voice: e.target.value }); }
+    else if (curSettings.tts_engine === 'piper') { curSettings.piper_voice = e.target.value; saveSettings({ piper_voice: e.target.value }); }
     else { curSettings.voice = e.target.value; saveSettings({ voice: e.target.value }); }
   });
   $('previewVoice').addEventListener('click', async () => {

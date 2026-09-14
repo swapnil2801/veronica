@@ -1,9 +1,12 @@
 """Text-to-speech: switchable engine.
 
-edge      -> edge-tts neural voices (free, default)
+edge      -> edge-tts neural voices (free cloud, default)
+piper     -> Piper local ONNX TTS (fully offline, runs on this CPU)
 elevenlabs-> ElevenLabs API (premium; requires paid plan for API TTS).
-             Falls back to edge automatically on any failure, so a dead
-             key / free-tier 402 never silences Veronica.
+
+Every engine falls back to edge automatically on failure; piper is also
+the fallback if edge itself dies (offline resilience), so Veronica only
+goes text-only if ALL engines fail.
 """
 import asyncio
 import logging
@@ -17,6 +20,29 @@ from . import config
 log = logging.getLogger("veronica.tts")
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?।])\s+")
+
+
+async def _synth_piper(text: str, voice: str | None = None) -> bytes:
+    """Local Piper synthesis -> MP3 bytes (WAV piped through ffmpeg)."""
+    v = voice or config.get_piper_voice()
+    model = config.PIPER_VOICES_DIR / f"{v}.onnx"
+    if not config.PIPER_BIN.exists() or not model.exists():
+        raise RuntimeError(f"piper or voice missing: {v}")
+    # piper (WAV to stdout) | ffmpeg (WAV -> MP3) — browser expects MP3
+    cmd = (
+        f"{config.PIPER_BIN} -m {model} -f - -q | "
+        f"ffmpeg -v error -i - -codec:a libmp3lame -b:a 64k -f mp3 -"
+    )
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, err = await asyncio.wait_for(proc.communicate(text.encode()), timeout=30)
+    if proc.returncode != 0 or not out:
+        raise RuntimeError(f"piper failed: {err.decode()[:150]}")
+    return out
 
 
 async def _synth_elevenlabs(text: str) -> bytes:
@@ -53,12 +79,24 @@ async def _synth_edge(text: str) -> bytes:
 
 async def synthesize(text: str) -> bytes:
     """Synthesize one utterance to MP3 bytes. Raises on total failure."""
-    if config.get_tts_engine() == "elevenlabs":
+    engine = config.get_tts_engine()
+    if engine == "elevenlabs":
         try:
             return await _synth_elevenlabs(text)
         except Exception as e:  # noqa: BLE001
             log.warning("elevenlabs failed (%s) -> edge fallback", e)
-    return await _synth_edge(text)
+    elif engine == "piper":
+        try:
+            return await _synth_piper(text)
+        except Exception as e:  # noqa: BLE001
+            log.warning("piper failed (%s) -> edge fallback", e)
+    try:
+        return await _synth_edge(text)
+    except Exception as e:  # noqa: BLE001
+        if engine != "piper":  # edge died: last resort = local piper
+            log.warning("edge failed (%s) -> piper last-resort", e)
+            return await _synth_piper(text)
+        raise
 
 
 def split_sentences(text: str) -> list[str]:
