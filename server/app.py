@@ -66,6 +66,10 @@ async def api_settings():
         "model": config.get_model(),
         "voice": config.get_voice(),
         "voices": config.VOICE_OPTIONS,
+        "tts_engine": config.get_tts_engine(),
+        "el_voice": config.get_el_voice(),
+        "el_voices": config.ELEVENLABS_VOICE_OPTIONS,
+        "el_has_key": bool(config.get_elevenlabs_key()),
     }
 
 
@@ -98,19 +102,43 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs"):
+        changed["tts_engine"] = payload["tts_engine"]
+    if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
+        changed["el_voice"] = payload["el_voice"].strip()
     if changed:
         config.save_settings(changed)
         log.info("settings changed: %s", changed)
-    return {"ok": True, "provider": config.get_provider(), "model": config.get_model(), "voice": config.get_voice()}
+    return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
+            "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
+            "el_voice": config.get_el_voice()}
 
 
 @app.post("/api/settings/preview_voice")
 async def api_preview_voice(payload: dict):
-    """Synthesize a short sample in the given voice; returns MP3."""
+    """Synthesize a short sample; returns MP3. engine=edge|elevenlabs."""
     from fastapi.responses import Response
-    voice = (payload.get("voice") or config.get_voice()).strip()
     text = "Hello Swapnil, this is how I sound. Shall I keep this voice?"
+    engine = payload.get("engine") or "edge"
     try:
+        if engine == "elevenlabs":
+            from . import tts as tts_mod
+            import json as _j
+            # temporarily target the requested el voice for this preview
+            voice = (payload.get("voice") or config.get_el_voice()).strip()
+            key = config.get_elevenlabs_key()
+            import httpx
+            async with httpx.AsyncClient(timeout=30) as c:
+                r = await c.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+                    headers={"xi-api-key": key, "Content-Type": "application/json"},
+                    json={"text": text, "model_id": config.ELEVENLABS_MODEL},
+                )
+                if r.status_code != 200:
+                    detail = r.text[:200]
+                    return {"error": f"elevenlabs {r.status_code}", "detail": detail}
+                return Response(content=r.content, media_type="audio/mpeg")
+        voice = (payload.get("voice") or config.get_voice()).strip()
         import edge_tts
         buf = bytearray()
         communicate = edge_tts.Communicate(text, voice, rate=config.TTS_RATE)

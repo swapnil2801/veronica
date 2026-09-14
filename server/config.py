@@ -37,6 +37,20 @@ VOICE_OPTIONS = [
     {"id": "en-AU-NatashaNeural", "label": "Natasha — Australian English"},
 ]
 
+# --- ElevenLabs (premium TTS engine; key from manager profile env) ---
+# NOTE: verified 2026-09-14 — key is VALID but account is FREE tier and
+# ElevenLabs returns 402 paid_plan_required for ALL API TTS on free plans.
+# Integration is ready; it activates automatically once the plan is upgraded.
+ELEVENLABS_MODEL = "eleven_multilingual_v2"
+ELEVENLABS_VOICE = "sTuFDs5r9KT8f6JSiJbq"  # from manager profile tts config
+ELEVENLABS_VOICE_OPTIONS = [
+    {"id": "sTuFDs5r9KT8f6JSiJbq", "label": "Configured voice (manager profile)"},
+    {"id": "21m00Tcm4TlvDq8ikWAM", "label": "Rachel — calm US female"},
+    {"id": "EXAVITQu4vr4xnSDxMaL", "label": "Sarah — soft US female"},
+    {"id": "XrExE9yKIg1WjnnlVkGX", "label": "Matilda — warm US female"},
+    {"id": "pFZP5JQG7iQjIQuC4Bku", "label": "Lily — British female"},
+]
+
 # --- LLM ---
 LLM_BASE_URL = os.environ.get("VERONICA_LLM_BASE", "http://localhost:20128/v1")
 LLM_API_KEY = os.environ.get("VERONICA_LLM_KEY", "dummy")
@@ -113,6 +127,20 @@ def save_settings(d: dict):
 
 def get_voice() -> str:
     return load_settings().get("voice", TTS_VOICE)
+
+
+def get_tts_engine() -> str:
+    e = load_settings().get("tts_engine", "edge")
+    return e if e in ("edge", "elevenlabs") else "edge"
+
+
+def get_el_voice() -> str:
+    return load_settings().get("el_voice", ELEVENLABS_VOICE)
+
+
+def get_elevenlabs_key() -> str:
+    return _read_env_key("ELEVENLABS_API_KEY",
+                         "~/.hermes/profiles/manager/.env", "~/.hermes/.env")
 
 
 def get_provider() -> str:

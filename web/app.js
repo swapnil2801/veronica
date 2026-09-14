@@ -393,20 +393,46 @@ async function loadModels() {
     sm.appendChild(o);
   }
 }
+function renderEngines() {
+  const g = $('engGrid'); g.innerHTML = '';
+  const engines = [
+    { id:'edge', label:'Edge Neural', meta:'free · fast', ok:true },
+    { id:'elevenlabs', label:'ElevenLabs', meta:curSettings.el_has_key ? 'premium · key found' : 'no API key', ok:curSettings.el_has_key },
+  ];
+  for (const e of engines) {
+    const d = document.createElement('div');
+    d.className = 'prov' + (e.id === curSettings.tts_engine ? ' sel' : '') + (e.ok ? '' : ' nokey');
+    d.innerHTML = `<div class="pname">${e.label}</div><div class="pmeta">${e.meta}</div>`;
+    if (e.ok) d.addEventListener('click', async () => {
+      if (e.id === curSettings.tts_engine) return;
+      await saveSettings({ tts_engine: e.id });
+      curSettings.tts_engine = e.id;
+      renderEngines(); renderVoices();
+    });
+    g.appendChild(d);
+  }
+}
+function renderVoices() {
+  const sv = $('selVoice');
+  sv.innerHTML = '';
+  const el = curSettings.tts_engine === 'elevenlabs';
+  const list = el ? curSettings.el_voices : curSettings.voices;
+  const active = el ? curSettings.el_voice : curSettings.voice;
+  for (const v of list) {
+    const o = document.createElement('option');
+    o.value = v.id; o.textContent = v.label;
+    if (v.id === active) o.selected = true;
+    sv.appendChild(o);
+  }
+}
 async function loadSettings() {
   try {
     curSettings = await fetch('/api/settings').then(r => r.json());
     renderProviders();
     await loadModels();
-    const sv = $('selVoice');
-    sv.innerHTML = '';
-    for (const v of curSettings.voices) {
-      const o = document.createElement('option');
-      o.value = v.id; o.textContent = v.label;
-      if (v.id === curSettings.voice) o.selected = true;
-      sv.appendChild(o);
-    }
-    $('setStatus').textContent = `active → ${curSettings.provider} · ${curSettings.model} · ${curSettings.voice}`;
+    renderEngines();
+    renderVoices();
+    $('setStatus').textContent = `active → ${curSettings.provider} · ${curSettings.model} · ${curSettings.tts_engine}:${curSettings.tts_engine === 'elevenlabs' ? curSettings.el_voice : curSettings.voice}`;
   } catch (e) { $('setStatus').textContent = 'failed to load settings'; }
 }
 async function saveSettings(part) {
@@ -420,20 +446,29 @@ async function saveSettings(part) {
 }
 document.addEventListener('DOMContentLoaded', () => {
   $('selModel').addEventListener('change', e => saveSettings({ model: e.target.value }));
-  $('selVoice').addEventListener('change', e => saveSettings({ voice: e.target.value }));
+  $('selVoice').addEventListener('change', e => {
+    if (curSettings.tts_engine === 'elevenlabs') { curSettings.el_voice = e.target.value; saveSettings({ el_voice: e.target.value }); }
+    else { curSettings.voice = e.target.value; saveSettings({ voice: e.target.value }); }
+  });
   $('previewVoice').addEventListener('click', async () => {
     const btn = $('previewVoice');
     btn.disabled = true; btn.textContent = '…';
     try {
       const r = await fetch('/api/settings/preview_voice', { method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ voice: $('selVoice').value }) });
-      const buf = await r.arrayBuffer();
-      ensureCtx();
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
-      const decoded = await audioCtx.decodeAudioData(buf);
-      const src = audioCtx.createBufferSource();
-      src.buffer = decoded; src.connect(audioCtx.destination); src.start();
+        body:JSON.stringify({ voice: $('selVoice').value, engine: curSettings.tts_engine }) });
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('audio')) {
+        const j = await r.json();
+        $('setStatus').textContent = `preview failed: ${j.error || 'unknown'}${j.detail ? ' — ' + j.detail.slice(0, 90) : ''}`;
+      } else {
+        const buf = await r.arrayBuffer();
+        ensureCtx();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        const decoded = await audioCtx.decodeAudioData(buf);
+        const src = audioCtx.createBufferSource();
+        src.buffer = decoded; src.connect(audioCtx.destination); src.start();
+      }
     } catch (e) { $('setStatus').textContent = 'preview failed'; }
     btn.disabled = false; btn.textContent = '▶ Preview';
   });
