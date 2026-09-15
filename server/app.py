@@ -81,9 +81,13 @@ async def api_settings():
         "cartesia_voice": config.get_cartesia_voice(),
         "cartesia_voices": config.CARTESIA_VOICE_OPTIONS,
         "cartesia_available": bool(config.get_cartesia_key()),
+        "sarvam_voice": config.get_sarvam_voice(),
+        "sarvam_voices": config.SARVAM_VOICE_OPTIONS,
+        "sarvam_available": bool(config.get_sarvam_key()),
         "stt_engine": config.get_stt_engine(),
         "stt_options": [
             {"id": "deepgram", "label": "Deepgram Flux", "meta": "fast cloud transcription", "available": bool(config.DEEPGRAM_API_KEY)},
+            {"id": "sarvam", "label": "Sarvam Saaras", "meta": "Indian languages + Hinglish", "available": bool(config.get_sarvam_key())},
             {"id": "local-whisper", "label": "Local Whisper", "meta": "offline fallback", "available": True},
         ],
 
@@ -119,18 +123,21 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram", "cartesia"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram", "cartesia", "sarvam"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
     if "piper_voice" in payload and isinstance(payload["piper_voice"], str) and payload["piper_voice"].strip():
         changed["piper_voice"] = payload["piper_voice"].strip()
-    if "stt_engine" in payload and payload["stt_engine"] in ("deepgram", "local-whisper"):
-        if payload["stt_engine"] != "deepgram" or config.DEEPGRAM_API_KEY:
+    if "stt_engine" in payload and payload["stt_engine"] in ("deepgram", "sarvam", "local-whisper"):
+        ok = {"deepgram": bool(config.DEEPGRAM_API_KEY), "sarvam": bool(config.get_sarvam_key()), "local-whisper": True}
+        if ok[payload["stt_engine"]]:
             changed["stt_engine"] = payload["stt_engine"]
     if "deepgram_tts_model" in payload and isinstance(payload["deepgram_tts_model"], str):
         if payload["deepgram_tts_model"] in {v["id"] for v in config.DEEPGRAM_TTS_VOICE_OPTIONS}:
             changed["deepgram_tts_model"] = payload["deepgram_tts_model"]
+    if "sarvam_voice" in payload and payload["sarvam_voice"] in {v["id"] for v in config.SARVAM_VOICE_OPTIONS}:
+        changed["sarvam_voice"] = payload["sarvam_voice"]
     if "cartesia_voice" in payload and isinstance(payload["cartesia_voice"], str) and payload["cartesia_voice"].strip():
         changed["cartesia_voice"] = payload["cartesia_voice"].strip()
 
@@ -141,7 +148,7 @@ async def api_set_settings(payload: dict):
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
             "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
             "stt_engine": config.get_stt_engine(), "deepgram_tts_model": config.get_deepgram_tts_model(),
-            "cartesia_voice": config.get_cartesia_voice()}
+            "cartesia_voice": config.get_cartesia_voice(), "sarvam_voice": config.get_sarvam_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -180,6 +187,10 @@ async def api_preview_voice(payload: dict):
         if engine == "cartesia":
             from . import tts as tts_mod
             audio = await tts_mod._synth_cartesia(text)
+            return Response(content=audio, media_type="audio/mpeg")
+        if engine == "sarvam":
+            from . import tts as tts_mod
+            audio = await tts_mod._synth_sarvam(text, payload.get("voice"))
             return Response(content=audio, media_type="audio/mpeg")
         voice = (payload.get("voice") or config.get_voice()).strip()
         import edge_tts

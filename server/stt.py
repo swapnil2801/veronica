@@ -94,11 +94,47 @@ async def transcribe_deepgram(pcm_f32: np.ndarray) -> str:
     return text
 
 
+def _to_wav16(pcm_f32: np.ndarray) -> bytes:
+    import io, wave
+    pcm16 = np.clip(pcm_f32, -1, 1) * 32767
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes(pcm16.astype("<i2").tobytes())
+    return buf.getvalue()
+
+
+async def transcribe_sarvam(pcm_f32: np.ndarray) -> str:
+    """Transcribe one complete 16 kHz utterance with Sarvam Saaras v3 (Indic + English)."""
+    import httpx, time
+    key = config.get_sarvam_key()
+    if not key:
+        raise RuntimeError("Sarvam API key is not configured")
+    t0 = time.time()
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.post("https://api.sarvam.ai/speech-to-text",
+                         headers={"api-subscription-key": key},
+                         files={"file": ("utterance.wav", _to_wav16(pcm_f32), "audio/wav")},
+                         data={"model": config.SARVAM_STT_MODEL, "mode": "codemix"})  # Hinglish stays in Latin script
+    if r.status_code != 200:
+        raise RuntimeError(f"sarvam stt {r.status_code}: {r.text[:160]}")
+    j = r.json()
+    text = (j.get("transcript") or "").strip()
+    log.info("sarvam stt %.2fs audio -> %.2fs latency (%s): %r", len(pcm_f32) / 16000, time.time() - t0, j.get("language_code"), text)
+    return text
+
+
 async def transcribe_async(pcm_f32: np.ndarray) -> str:
-    """Use Deepgram when configured; otherwise use the local Whisper path."""
-    if config.get_stt_engine() == "deepgram" and config.DEEPGRAM_API_KEY:
+    """Use the configured cloud engine; fall back to the local Whisper path."""
+    engine = config.get_stt_engine()
+    if engine == "deepgram" and config.DEEPGRAM_API_KEY:
         try:
             return await transcribe_deepgram(pcm_f32)
         except Exception as e:  # noqa: BLE001
             log.warning("deepgram failed (%s) -> local whisper fallback", e)
+    elif engine == "sarvam" and config.get_sarvam_key():
+        try:
+            return await transcribe_sarvam(pcm_f32)
+        except Exception as e:  # noqa: BLE001
+            log.warning("sarvam stt failed (%s) -> local whisper fallback", e)
     return await __import__("asyncio").to_thread(transcribe, pcm_f32)

@@ -109,13 +109,46 @@ def get_cartesia_key() -> str:
     return os.environ.get("VERONICA_CARTESIA_KEY", "") or _read_env_key("CARTESIA_API_KEY", "~/technologia/.env", "~/.hermes/profiles/technologia/.env", "~/.hermes/.env")
 
 
+# --- Sarvam AI (Bulbul v3 TTS + Saaras v3 STT) ---
+SARVAM_TTS_MODEL = os.environ.get("VERONICA_SARVAM_TTS_MODEL", "bulbul:v3")
+SARVAM_STT_MODEL = os.environ.get("VERONICA_SARVAM_STT_MODEL", "saaras:v3")
+SARVAM_LANG = os.environ.get("VERONICA_SARVAM_LANG", "en-IN")
+SARVAM_VOICE = os.environ.get("VERONICA_SARVAM_VOICE", "ishita")
+# Female Bulbul v3 speakers, ordered by Sarvam's published reliability tiers.
+SARVAM_VOICE_OPTIONS = [
+    {"id": "ishita", "label": "Ishita — natural, conversational (best for English)"},
+    {"id": "priya", "label": "Priya — clear, warm (best for Hindi)"},
+    {"id": "roopa", "label": "Roopa — soft, friendly"},
+    {"id": "pooja", "label": "Pooja — calm, steady"},
+    {"id": "simran", "label": "Simran — bright, youthful"},
+    {"id": "suhani", "label": "Suhani — gentle Hindi"},
+    {"id": "shreya", "label": "Shreya — expressive"},
+    {"id": "rupali", "label": "Rupali — mature, composed"},
+    {"id": "neha", "label": "Neha — soft-spoken"},
+    {"id": "ritu", "label": "Ritu — crisp, professional"},
+    {"id": "kavya", "label": "Kavya — lively"},
+    {"id": "tanya", "label": "Tanya — energetic"},
+    {"id": "shruti", "label": "Shruti — smooth"},
+    {"id": "kavitha", "label": "Kavitha — South Indian warmth"},
+]
+
+
+def get_sarvam_key() -> str:
+    return os.environ.get("SARVAM_API_KEY", "") or _read_env_key("SARVAM_API_KEY", BASE_DIR / ".env", "~/.hermes/.env")
+
+
+def get_sarvam_voice() -> str:
+    v = load_settings().get("sarvam_voice", SARVAM_VOICE)
+    return v if v in {o["id"] for o in SARVAM_VOICE_OPTIONS} else SARVAM_VOICE
+
+
 def get_cartesia_voice() -> str:
     return load_settings().get("cartesia_voice", CARTESIA_VOICE)
 
 
 def get_stt_engine() -> str:
     engine = load_settings().get("stt_engine", "deepgram" if DEEPGRAM_API_KEY else "local-whisper")
-    return engine if engine in ("deepgram", "local-whisper") else "local-whisper"
+    return engine if engine in ("deepgram", "sarvam", "local-whisper") else "local-whisper"
 
 
 # OpenAI-compatible providers Veronica can switch between
@@ -201,7 +234,7 @@ def get_voice() -> str:
 
 def get_tts_engine() -> str:
     e = load_settings().get("tts_engine", "edge")
-    return e if e in ("edge", "elevenlabs", "piper", "deepgram", "cartesia") else "edge"
+    return e if e in ("edge", "elevenlabs", "piper", "deepgram", "cartesia", "sarvam") else "edge"
 
 
 def get_piper_voice() -> str:

@@ -10,6 +10,7 @@ the fallback if edge itself dies (offline resilience), so Veronica only
 goes text-only if ALL engines fail.
 """
 import asyncio
+import base64
 import logging
 import re
 
@@ -99,20 +100,23 @@ async def _synth_cartesia(text: str) -> bytes:
         return r.content
 
 
-async def _synth_cartesia(text: str) -> bytes:
-    """Cartesia Sonic cloud TTS -> MP3 bytes."""
-    key = config.get_cartesia_key()
+async def _synth_sarvam(text: str, voice: str | None = None) -> bytes:
+    """Sarvam Bulbul v3 cloud TTS -> MP3 bytes."""
+    key = config.get_sarvam_key()
     if not key:
-        raise RuntimeError("Cartesia API key is not configured")
-    async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post("https://api.cartesia.ai/tts/bytes",
-                         headers={"X-API-Key": key, "Cartesia-Version": config.CARTESIA_VERSION, "Content-Type": "application/json"},
-                         json={"model_id": config.CARTESIA_MODEL, "transcript": text, "voice": {"id": config.get_cartesia_voice()}, "language": "en", "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000}})
+        raise RuntimeError("Sarvam API key is not configured")
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.post("https://api.sarvam.ai/text-to-speech",
+                         headers={"api-subscription-key": key, "Content-Type": "application/json"},
+                         json={"text": text[:1500], "target_language_code": config.SARVAM_LANG,
+                               "speaker": voice or config.get_sarvam_voice(), "model": config.SARVAM_TTS_MODEL,
+                               "output_audio_codec": "mp3", "speech_sample_rate": 24000})
         if r.status_code != 200:
-            raise RuntimeError(f"cartesia {r.status_code}: {r.text[:160]}")
-        if not r.content:
-            raise RuntimeError("Cartesia returned empty audio")
-        return r.content
+            raise RuntimeError(f"sarvam {r.status_code}: {r.text[:160]}")
+        audios = r.json().get("audios") or []
+        if not audios:
+            raise RuntimeError("Sarvam returned empty audio")
+        return base64.b64decode(audios[0])
 
 
 async def _synth_edge(text: str) -> bytes:
@@ -138,6 +142,11 @@ async def synthesize(text: str) -> bytes:
             return await _synth_cartesia(text)
         except Exception as e:  # noqa: BLE001
             log.warning("cartesia failed (%s) -> edge fallback", e)
+    elif engine == "sarvam":
+        try:
+            return await _synth_sarvam(text)
+        except Exception as e:  # noqa: BLE001
+            log.warning("sarvam failed (%s) -> edge fallback", e)
     elif engine == "deepgram":
         try:
             return await _synth_deepgram(text)
