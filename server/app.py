@@ -73,9 +73,9 @@ async def api_settings():
         "piper_voice": config.get_piper_voice(),
         "piper_voices": config.PIPER_VOICE_OPTIONS,
         "piper_available": config.PIPER_BIN.exists(),
-        "voicestudio_voice": config.get_voicestudio_voice(),
-        "voicestudio_voices": config.VOICESTUDIO_VOICE_OPTIONS,
-        "voicestudio_available": bool(config.VOICESTUDIO_BASE_URL and config.VOICESTUDIO_API_KEY),
+        "cartesia_voice": config.get_cartesia_voice(),
+        "cartesia_voices": config.CARTESIA_VOICE_OPTIONS,
+        "cartesia_available": bool(config.get_cartesia_key()),
     }
 
 
@@ -108,21 +108,21 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "voicestudio"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "cartesia"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
     if "piper_voice" in payload and isinstance(payload["piper_voice"], str) and payload["piper_voice"].strip():
         changed["piper_voice"] = payload["piper_voice"].strip()
-    if "voicestudio_voice" in payload and isinstance(payload["voicestudio_voice"], str) and payload["voicestudio_voice"].strip():
-        changed["voicestudio_voice"] = payload["voicestudio_voice"].strip()
+    if "cartesia_voice" in payload and isinstance(payload["cartesia_voice"], str) and payload["cartesia_voice"].strip():
+        changed["cartesia_voice"] = payload["cartesia_voice"].strip()
     if changed:
         config.save_settings(changed)
         log.info("settings changed: %s", changed)
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
             "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
-            "voicestudio_voice": config.get_voicestudio_voice()}
+            "cartesia_voice": config.get_cartesia_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -136,9 +136,9 @@ async def api_preview_voice(payload: dict):
             from . import tts as tts_mod
             audio = await tts_mod._synth_piper(text, payload.get("voice"))
             return Response(content=audio, media_type="audio/mpeg")
-        if engine == "voicestudio":
+        if engine == "cartesia":
             from . import tts as tts_mod
-            audio = await tts_mod._synth_voicestudio(text)
+            audio = await tts_mod._synth_cartesia(text)
             return Response(content=audio, media_type="audio/mpeg")
         if engine == "elevenlabs":
             from . import tts as tts_mod
