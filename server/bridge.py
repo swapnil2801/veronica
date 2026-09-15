@@ -10,6 +10,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 
 import psutil
 
@@ -20,6 +21,12 @@ ACTION_LOG = config.LOG_DIR / "actions.log"
 
 HOME = Path.home()
 PROFILES_DIR = HOME / ".hermes" / "profiles"
+HERMES_BIN = next((p for p in (
+    HOME / ".local" / "bin" / "hermes",
+    HOME / ".hermes" / "hermes-agent" / "venv" / "bin" / "hermes",
+) if p.exists()), None)
+DEFAULT_SESSION = "veronica-voice"
+DEFAULT_AGENT_LOCK = Lock()
 
 # systemd user units Veronica may control. Dashboard & her own service are protected.
 CONTROLLABLE_UNITS = {
@@ -43,6 +50,35 @@ def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str]:
     except subprocess.TimeoutExpired:
         return -1, f"command timed out after {timeout}s"
 
+
+def ask_default_agent(instruction: str, timeout: int = 600) -> dict:
+    """Run one turn through the real default Hermes agent with its CLI toolset."""
+    if HERMES_BIN is None:
+        return {"ok": False, "error": "Hermes CLI not found"}
+    if not instruction.strip():
+        return {"ok": False, "error": "empty instruction"}
+    _audit("default_agent", instruction[:200])
+    cmd = [
+        str(HERMES_BIN), "-p", "default", "chat",
+        "--continue", DEFAULT_SESSION, "--create-if-missing",
+        "--query-file", "-", "--quiet", "--source", "voice",
+    ]
+    try:
+        with DEFAULT_AGENT_LOCK:
+            p = subprocess.run(cmd, input=instruction, capture_output=True,
+                               text=True, timeout=timeout, cwd=str(HOME))
+        output = p.stdout.strip()
+        # Quiet mode still emits a machine-readable session_id line; do not
+        # send that implementation detail to Veronica's spoken response.
+        output = "\n".join(
+            line for line in output.splitlines()
+            if not line.startswith("session_id:")
+        ).strip()
+        if p.returncode != 0 and p.stderr.strip():
+            output = (output + "\n" + p.stderr.strip()).strip()
+        return {"ok": p.returncode == 0, "result": output[-12000:], "returncode": p.returncode}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"default Hermes agent timed out after {timeout}s"}
 
 # ---------------------------------------------------------------- tools ----
 
@@ -160,14 +196,19 @@ def status_report() -> dict:
 
 
 def send_task(profile: str, instruction: str, confirm: bool = False) -> dict:
-    """Send a task to a Hermes profile agent (runs `hermes -p <profile> chat`). Needs confirm=True."""
+    """Send a task to a Hermes profile agent (runs the real Hermes CLI)."""
     profiles = [p.name for p in PROFILES_DIR.iterdir() if p.is_dir()]
     if profile not in profiles:
         return {"error": f"unknown profile '{profile}'", "profiles": profiles}
     if not confirm:
         return {"needs_confirmation": True, "message": f"Confirm with the user: send this task to '{profile}'?"}
+    if HERMES_BIN is None:
+        return {"error": "Hermes CLI not found", "searched": [
+            str(HOME / ".local" / "bin" / "hermes"),
+            str(HOME / ".hermes" / "hermes-agent" / "venv" / "bin" / "hermes"),
+        ]}
     _audit("send_task", f"{profile}: {instruction[:200]}")
-    rc, out = _run(["hermes", "-p", profile, "chat", "-q", instruction], timeout=280)
+    rc, out = _run([str(HERMES_BIN), "-p", profile, "chat", "-q", instruction], timeout=280)
     return {"profile": profile, "ok": rc == 0, "result": out[-1500:]}
 
 

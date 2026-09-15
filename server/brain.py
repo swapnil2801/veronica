@@ -1,4 +1,5 @@
 """Veronica's brain: streaming chat + Hermes tool calling via OmniRoute."""
+import asyncio
 import json
 import logging
 from collections import deque
@@ -28,11 +29,27 @@ class Brain:
         return self.client
 
     async def stream_reply(self, user_text: str, on_tool=None) -> AsyncIterator[str]:
-        """Yield token deltas; executes bridge tools between rounds.
+        """Run the request through the real default Hermes agent.
 
-        on_tool: optional async callback(tool_name, args) fired when a tool runs
-        (lets the UI show 'checking agents…').
+        Veronica remains the voice/UI surface, while Hermes owns model routing,
+        tools, skills, memory, approvals, and terminal/file/browser access.
         """
+        if on_tool:
+            await on_tool("default_hermes_agent", {"profile": "default"})
+        result = await asyncio.to_thread(bridge.ask_default_agent, user_text)
+        if result.get("ok"):
+            reply = result.get("result", "").strip()
+        else:
+            reply = f"The default Hermes agent could not complete that request: {result.get('error', 'unknown error')}"
+        if not reply:
+            reply = "The default Hermes agent completed the request without a spoken response."
+        self.history.append({"role": "user", "content": user_text})
+        self.history.append({"role": "assistant", "content": reply})
+        log.info("default-agent reply: %r", reply[:200])
+        yield reply
+
+    async def _legacy_stream_reply(self, user_text: str, on_tool=None) -> AsyncIterator[str]:
+        """Legacy direct OpenAI-compatible path retained for rollback/debugging."""
         client = self._get_client()
         messages = [{"role": "system", "content": config.PERSONA}]
         messages.extend(self.history)

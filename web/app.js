@@ -3,7 +3,13 @@ const SR = 16000;
 let ws, audioCtx, micStream, workNode, capturing = false, handsFree = false;
 let playQueue = [], playing = false, pendingText = null;
 let model = null, pixiApp = null;
+let activeCharacter = localStorage.getItem('veronica-character') || 'haru';
 let micLevel = 0;
+
+const CHARACTERS = {
+  haru: { label: 'Haru · current', model: 'models/haru/haru_greeter_t03.model3.json', note: 'Live2D sample model' },
+  hiyori: { label: 'Hiyori · new option', model: 'models/Hiyori/Hiyori.model3.json', note: 'Live2D sample model' },
+};
 let mouthVal = 0, mouthTarget = 0;
 
 // VAD (hands-free)
@@ -49,20 +55,73 @@ function fitModel() {
   if (!model || !pixiApp) return;
   const stage = $('stage');
   const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
   pixiApp.renderer.resize(w, h);
-  const mw = model.internalModel.width, mh = model.internalModel.height;
-  if (document.body.classList.contains('fs')) {
-    // fullscreen: cinematic portrait — zoom to head + upper body
-    const scale = (h / mh) * 2.35;
-    model.scale.set(scale);
-    model.anchor.set(0.5, 0);
-    model.position.set(w / 2, -h * 0.12); // slight lift so face sits in upper third
-  } else {
-    // sidebar: contain, full body visible
-    const scale = Math.min(w / mw, h / mh) * 0.95;
-    model.scale.set(scale);
-    model.anchor.set(0.5, 0);
-    model.position.set(w / 2, h * 0.02);
+
+  // Use the rendered Pixi bounds at scale 1, not Cubism's internal canvas
+  // dimensions. The latter vary between models and made Hiyori render too
+  // small inside the stage.
+  model.scale.set(1);
+  model.anchor.set(0.5, 0);
+  const base = model.getLocalBounds();
+  const mw = Math.max(base.width, 1);
+  const mh = Math.max(base.height, 1);
+  const fullscreen = document.body.classList.contains('fs');
+
+  // Fill the stage horizontally and vertically. The intentional overscan
+  // crops the lower body while keeping the face and shoulders prominent.
+  const fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98)) / mw,
+                             (h * (fullscreen ? 1.16 : 1.04)) / mh);
+  model.scale.set(fillScale);
+  model.position.set(w / 2, fullscreen ? -h * 0.08 : -h * 0.04);
+}
+let characterLoadId = 0;
+async function loadCharacter(characterId) {
+  const chosenId = CHARACTERS[characterId] ? characterId : 'haru';
+  const chosen = CHARACTERS[chosenId];
+  const loadId = ++characterLoadId;
+  $('characterStatus').textContent = `${chosen.label} · loading…`;
+  try {
+    // Load first. Keep the current avatar visible if the replacement fails.
+    const nextModel = await PIXI.live2d.Live2DModel.from(chosen.model);
+
+    // A newer selection won while this model was loading; discard this result.
+    if (loadId !== characterLoadId) {
+      nextModel.destroy({ children: true });
+      return;
+    }
+
+    const previousModel = model;
+    model = nextModel;
+    pixiApp.stage.addChild(model);
+    fitModel();
+    if (previousModel) {
+      pixiApp.stage.removeChild(previousModel);
+      previousModel.destroy({ children: true });
+    }
+    activeCharacter = chosenId;
+    localStorage.setItem('veronica-character', activeCharacter);
+    const picker = $('characterSelect');
+    if (picker) picker.value = activeCharacter;
+    model.on('hit', () => { try { model.motion('Tap'); } catch(e) { try { model.motion('TapBody'); } catch (_) {} } });
+
+    // Keep lip-sync frame-locked after each motion update for every model option.
+    const mm = model.internalModel.motionManager;
+    const origUpdate = mm.update.bind(mm);
+    mm.update = (...a) => {
+      const r = origUpdate(...a);
+      mouthVal += (mouthTarget - mouthVal) * 0.5;
+      if (playing) {
+        try { model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthVal); } catch (e) {}
+      }
+      return r;
+    };
+    $('characterStatus').textContent = `${chosen.label} · ready`;
+  } catch (e) {
+    // Ignore stale failures; a newer request owns the status now.
+    if (loadId !== characterLoadId) return;
+    console.error('character failed to load', e);
+    $('characterStatus').textContent = `${chosen.label} · unavailable`;
   }
 }
 async function initLive2D() {
@@ -70,30 +129,13 @@ async function initLive2D() {
   pixiApp = new PIXI.Application({ view: canvas, backgroundAlpha: 0,
     width: stage.clientWidth, height: stage.clientHeight, autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 1.5), antialias: true });
-  pixiApp.ticker.maxFPS = 30; // halve GPU/CPU load
-  try {
-    model = await PIXI.live2d.Live2DModel.from('models/haru/haru_greeter_t03.model3.json');
-    pixiApp.stage.addChild(model);
-    fitModel();
-    window.addEventListener('resize', fitModel);
-    model.on('hit', () => { try { model.motion('Tap'); } catch(e){} });
-
-    // frame-locked lip-sync: re-apply mouth AFTER motion update so idle
-    // animations can never overwrite it mid-speech
-    const mm = model.internalModel.motionManager;
-    const origUpdate = mm.update.bind(mm);
-    mm.update = (...a) => {
-      const r = origUpdate(...a);
-      // smooth attack/decay toward target
-      mouthVal += (mouthTarget - mouthVal) * 0.5;
-      if (playing) {
-        try { model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthVal); } catch (e) {}
-      }
-      return r;
-    };
-  } catch (e) {
-    console.error('live2d failed', e);
-    stage.insertAdjacentHTML('beforeend', '<div style="position:absolute;top:40%;width:100%;text-align:center;color:#666;z-index:2">avatar failed to load — voice still works</div>');
+  pixiApp.ticker.maxFPS = 30;
+  await loadCharacter(activeCharacter);
+  window.addEventListener('resize', fitModel);
+  const picker = $('characterSelect');
+  if (picker) {
+    picker.value = activeCharacter;
+    picker.addEventListener('change', () => loadCharacter(picker.value));
   }
 }
 

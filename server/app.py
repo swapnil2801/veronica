@@ -293,10 +293,22 @@ async def respond(ws: WebSocket, brain: Brain, user_text: str):
                 mp3 = await tts.synthesize(sentence)
                 await ws.send_json({"type": "audio_sentence", "text": sentence})
                 await ws.send_bytes(mp3)
+            except WebSocketDisconnect:
+                return
+            except RuntimeError as e:
+                if "close message" in str(e) or "disconnected" in str(e).lower():
+                    return
+                raise
             except Exception as e:  # noqa: BLE001
                 log.warning("tts failed, text-only: %s", e)
-                await ws.send_json({"type": "caption", "text": sentence})
-        await ws.send_json({"type": "speaking_done"})
+                try:
+                    await ws.send_json({"type": "caption", "text": sentence})
+                except (WebSocketDisconnect, RuntimeError):
+                    return
+        try:
+            await ws.send_json({"type": "speaking_done"})
+        except (WebSocketDisconnect, RuntimeError):
+            pass
 
     worker = asyncio.create_task(tts_worker())
 
