@@ -94,8 +94,11 @@ DEEPGRAM_TTS_VOICE_OPTIONS = [
 ]
 CARTESIA_MODEL = os.environ.get("VERONICA_CARTESIA_MODEL", "sonic-3.6")
 CARTESIA_VERSION = "2026-08-14"
-CARTESIA_VOICE = os.environ.get("VERONICA_CARTESIA_VOICE", "cb9c954d-bcaa-43ed-82bf-aeb5e88a3cb5")
-CARTESIA_VOICE_OPTIONS = [{"id": CARTESIA_VOICE, "label": "Kabir — Cartesia Hindi male"}]
+CARTESIA_VOICE = os.environ.get("VERONICA_CARTESIA_VOICE", "a81fccdc-5595-4dfc-ae76-4de6a515b8a2")
+CARTESIA_VOICE_OPTIONS = [
+    {"id": "a81fccdc-5595-4dfc-ae76-4de6a515b8a2", "label": "Meera — friendly Hindi female (Boss's pick)"},
+    {"id": "cb9c954d-bcaa-43ed-82bf-aeb5e88a3cb5", "label": "Kabir — Hindi male"},
+]
 
 
 def get_deepgram_tts_model() -> str:
