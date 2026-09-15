@@ -79,6 +79,14 @@ body.fs .app{grid-template-columns:minmax(0,1fr) 380px!important;grid-template-r
 .cj{grid-template-columns:minmax(80px,100px) minmax(0,1fr);gap:10px;padding:11px 12px}.cj .cs{grid-column:2;justify-self:start;font-size:9px}
 .provgrid{grid-template-columns:1fr;gap:7px}.prov{min-width:0}.setblock{padding:16px}.setdesc{overflow-wrap:anywhere}.selgroup{display:grid;grid-template-columns:minmax(0,1fr) auto;max-width:none}.selgroup button{min-width:78px;padding:0 10px}
 }
+/* Header contract: navigation owns its row; date/status never shares its space. */
+@media(min-width:1451px){
+.opshead{display:grid;grid-template-columns:auto minmax(250px,1fr) auto;align-items:center;gap:24px;height:92px;padding-left:42px;padding-right:42px}
+.opshead .tabs{grid-column:2;margin:0;display:flex;justify-content:center;min-width:0}.opshead .tab{flex:0 1 auto}.opshead .right{grid-column:3;margin-left:0;min-width:150px;justify-content:flex-end}
+}
+@media(max-width:1450px) and (min-width:761px){
+.opshead .tabs{position:static!important;transform:none!important;float:none!important}.opshead .right{position:static!important;transform:none!important}
+}
 </style>
 </head>
 <body data-vstate="idle">
