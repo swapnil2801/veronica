@@ -30,9 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   $('jump').addEventListener('click', () => autoScroll(true));
 });
 
+const HINTS = { idle:'ready', listening:'listening…', thinking:'thinking…', speaking:'speaking' };
 function setState(s) {
   document.body.dataset.vstate = s;
   $('vstate').textContent = s;
+  const h = $('chatHint'); if (h) h.textContent = HINTS[s] || s;
 }
 function addLine(who, text, cls) {
   const follow = nearBottom();
@@ -73,7 +75,8 @@ function fitModel() {
   const fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98)) / mw,
                              (h * (fullscreen ? 1.16 : 1.04)) / mh);
   model.scale.set(fillScale);
-  model.position.set(w / 2, fullscreen ? -h * 0.08 : -h * 0.04);
+  // Leave headroom under the top stage bar so the face is never covered.
+  model.position.set(w / 2, fullscreen ? -h * 0.05 : -h * 0.01);
 }
 let characterLoadId = 0;
 async function loadCharacter(characterId) {
@@ -315,11 +318,13 @@ const ptt = $('ptt');
 async function pttDown(e) { e.preventDefault(); await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); capturing = true; ptt.classList.add('active'); setState('listening'); }
 function pttUp(e) { e.preventDefault(); if (!capturing) return; capturing = false; ptt.classList.remove('active'); endUtterance(); }
 ptt.addEventListener('mousedown', pttDown); ptt.addEventListener('mouseup', pttUp); ptt.addEventListener('mouseleave', pttUp);
-ptt.addEventListener('touchstart', pttDown); ptt.addEventListener('touchend', pttUp);
+ptt.addEventListener('touchstart', pttDown, { passive:false }); ptt.addEventListener('touchend', pttUp); ptt.addEventListener('touchcancel', pttUp);
+ptt.addEventListener('contextmenu', e => e.preventDefault());
 
 $('handsfree').addEventListener('click', async () => {
   handsFree = !handsFree;
   $('handsfree').classList.toggle('active', handsFree);
+  $('handsfree').setAttribute('aria-pressed', String(handsFree));
   if (handsFree) { await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); setState('listening'); }
   else setState('idle');
 });
