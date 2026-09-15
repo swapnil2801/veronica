@@ -203,8 +203,8 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------------- Voice WS ----------------
-   Caption sync: reply text is NOT streamed into the transcript.
-   Each sentence appears exactly when its audio starts playing. */
+   Text renders as tokens arrive; audio continues independently so the chat
+   never feels blocked by TTS or audio decoding. */
 let replySpan = null;
 function connectVoice() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -221,12 +221,14 @@ function connectVoice() {
     if (m.type === 'transcript') {
       if (m.text) { addLine('You', m.text); setState('thinking'); replySpan = null; }
       else setState(handsFree ? 'listening' : 'idle');
+    } else if (m.type === 'reply_delta') {
+      showReplyDelta(m.text || '');
     } else if (m.type === 'tool') {
       addLine('action', `⚙ ${m.name.replaceAll('_',' ')}`, 'tool');
     } else if (m.type === 'audio_sentence') {
       pendingText = m.text || '';
     } else if (m.type === 'caption') {
-      showCaption(m.text); // TTS failed for this sentence: text-only
+      if (!replySpan) showCaption(m.text); // fallback if no text stream arrived
     } else if (m.type === 'error') {
       addLine('system', m.message, 'tool'); setState('idle');
     }
@@ -238,6 +240,13 @@ function showCaption(text) {
   replySpan.textContent += (replySpan.textContent ? ' ' : '') + text;
   autoScroll(follow);
 }
+function showReplyDelta(text) {
+  if (!text) return;
+  const follow = nearBottom();
+  if (!replySpan) replySpan = addLine('Veronica', '');
+  replySpan.textContent += text;
+  autoScroll(follow);
+}
 
 async function pump() {
   if (playing || playQueue.length === 0) return;
@@ -247,7 +256,6 @@ async function pump() {
     try {
       ensureCtx();
       const decoded = await audioCtx.decodeAudioData(item.buf.slice(0));
-      showCaption(item.text); // caption appears in sync with its audio
       await new Promise(res => {
         const src = audioCtx.createBufferSource();
         src.buffer = decoded;
@@ -321,8 +329,11 @@ function sendText() {
   const t = tin.value.trim(); if (!t || !ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify({type:'text', text:t})); tin.value = ''; setState('thinking');
 }
-$('send').addEventListener('click', sendText);
-tin.addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+const chatForm = $('chatForm');
+chatForm.addEventListener('submit', e => { e.preventDefault(); sendText(); });
+tin.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+});
 
 /* ---------------- Dashboard data ---------------- */
 function connectEvents() {

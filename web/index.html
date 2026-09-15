@@ -27,6 +27,17 @@ body.fs .app{grid-template-columns:1fr}body.fs .ops{display:none}body.fs .vcol{b
 @media(max-width:1200px){.opshead{padding:0 26px;gap:18px}.strip{margin-left:26px;margin-right:26px}.opsbody{padding-left:26px;padding-right:26px}.tabs{margin-left:4px}.ops-title{font-size:16px}}
 @media(max-width:1050px){.strip{margin-top:16px}.metric{padding:14px}.opshead{height:auto;min-height:86px;flex-wrap:wrap;padding-top:16px;padding-bottom:16px}.opshead .right{margin-left:auto}.tabs{order:3;margin-left:0;width:100%;justify-content:center}.tab{flex:1}.opsbody{padding-top:22px}}
 @media(max-width:760px){.ops{display:none}}
+/* Dedicated chat workspace: keeps conversation controls visible in fullscreen. */
+.app{grid-template-columns:minmax(360px,38%) minmax(300px,25%) 1fr}
+.vcol{border-right:1px solid var(--line)}
+.chat-panel{min-width:0;min-height:0;display:flex;flex-direction:column;padding:28px 26px 24px;background:linear-gradient(180deg,#0f110f,#0b0d0c);border-right:1px solid var(--line)}
+.chat-head{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 0 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.chat-kicker{color:var(--accent2);font:10px var(--mono);letter-spacing:.14em;text-transform:uppercase}.chat-title{margin-top:7px;font-size:20px;font-weight:700;letter-spacing:-.03em}.chat-meta{color:var(--faint);font:10px var(--mono);text-align:right;line-height:1.7}
+.chat-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}.chat-body #transcript{padding:20px 2px 12px}.chat-body .transcript-label{padding:16px 0 0}.chat-body .line{max-width:100%;margin-bottom:16px}.chat-body .line .txt{max-width:100%;font-size:13px}.chat-body #jump{right:10px;bottom:82px}
+.chat-input{display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--line);flex-shrink:0}.chat-input input{min-height:44px}.chat-input button{min-width:72px;border:1px solid var(--accent);border-radius:10px;background:var(--accent);color:#151512;font-weight:800;font-size:11px}.chat-input button:disabled{opacity:.45;cursor:not-allowed}
+body.fs .app{grid-template-columns:minmax(0,1fr) minmax(320px,390px)}body.fs .vcol{grid-column:1;max-width:none;width:auto;margin:0;border-right:1px solid var(--line)}body.fs .chat-panel{grid-column:2;display:flex;border-right:0}body.fs .ops{display:none}body.fs #stage{flex-basis:62vh;min-height:400px}body.fs .vcol .transcript-label,body.fs .vcol #transcript,body.fs .vcol #jump,body.fs .vcol .textrow{display:none}
+@media(max-width:1050px){.app{grid-template-columns:minmax(340px,42%) minmax(280px,28%) 1fr}.chat-panel{padding-left:18px;padding-right:18px}}
+@media(max-width:760px){.app{display:block;height:auto;min-height:100vh}.chat-panel{min-height:42vh;border-right:0;border-top:1px solid var(--line)}body.fs .app{display:grid;grid-template-columns:1fr}body.fs .vcol{grid-column:1}body.fs .chat-panel{grid-column:1;min-height:42vh}.chat-title{font-size:17px}}
 </style>
 </head>
 <body data-vstate="idle">
@@ -43,8 +54,11 @@ body.fs .app{grid-template-columns:1fr}body.fs .ops{display:none}body.fs .vcol{b
       <div id="vstatebar"><span id="vstate">idle</span></div><button id="fsbtn" title="Fullscreen Veronica">⛶</button>
     </div>
     <div class="vcontrols"><button id="ptt">● Hold to talk</button><button id="handsfree">Hands-free</button></div>
-    <div class="transcript-label"><span>conversation</span><span>encrypted locally</span></div><div id="transcript"></div><button id="jump">↓ latest</button>
-    <div class="textrow"><input type="text" id="textin" placeholder="Ask Veronica anything…" autocomplete="off"><button id="send">Send ↵</button></div>
+  </section>
+  <section class="chat-panel" aria-label="Veronica chat">
+    <header class="chat-head"><div><div class="chat-kicker">private channel</div><div class="chat-title">Talk to Veronica</div></div><div class="chat-meta">LIVE<br><span id="chatHint">ready</span></div></header>
+    <div class="chat-body"><div class="transcript-label"><span>conversation</span><span>local</span></div><div id="transcript"></div><button id="jump">↓ latest</button></div>
+    <form class="chat-input" id="chatForm"><input type="text" id="textin" placeholder="Message Veronica…" autocomplete="off" enterkeyhint="send" aria-label="Message Veronica"><button id="send" type="submit">Send</button></form>
   </section>
   <section class="ops">
     <header class="opshead"><div class="ops-title">Command center<small>system overview / hermes runtime</small></div><div class="tabs"><button class="tab sel" data-pane="overview">Overview</button><button class="tab" data-pane="activity">Activity</button><button class="tab" data-pane="settings">Settings</button></div><div class="right"><span id="clock"></span><span id="connState"><span class="dot"></span><span id="connTxt">connecting</span></span></div></header>
