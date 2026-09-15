@@ -29,27 +29,31 @@ class Brain:
         return self.client
 
     async def stream_reply(self, user_text: str, on_tool=None) -> AsyncIterator[str]:
-        """Run the request through the real default Hermes agent.
+        """Stream normal Veronica conversations through the direct LLM path.
 
-        Veronica remains the voice/UI surface, while Hermes owns model routing,
-        tools, skills, memory, approvals, and terminal/file/browser access.
+        The direct OpenAI-compatible integration is intentionally the default:
+        it gives low-latency token streaming while retaining Veronica's
+        server-side allowlisted bridge tools and confirmation gates.
         """
-        if on_tool:
-            await on_tool("default_hermes_agent", {"profile": "default"})
+        async for delta in self._direct_stream_reply(user_text, on_tool=on_tool):
+            yield delta
+
+    async def stream_full_agent(self, user_text: str) -> AsyncIterator[str]:
+        """Run an explicitly requested task through the full Hermes CLI agent."""
         result = await asyncio.to_thread(bridge.ask_default_agent, user_text)
         if result.get("ok"):
             reply = result.get("result", "").strip()
         else:
-            reply = f"The default Hermes agent could not complete that request: {result.get('error', 'unknown error')}"
+            reply = f"The full Hermes agent could not complete that request: {result.get('error', 'unknown error')}"
         if not reply:
-            reply = "The default Hermes agent completed the request without a spoken response."
+            reply = "The full Hermes agent completed the request without a spoken response."
         self.history.append({"role": "user", "content": user_text})
         self.history.append({"role": "assistant", "content": reply})
-        log.info("default-agent reply: %r", reply[:200])
+        log.info("full-agent reply: %r", reply[:200])
         yield reply
 
-    async def _legacy_stream_reply(self, user_text: str, on_tool=None) -> AsyncIterator[str]:
-        """Legacy direct OpenAI-compatible path retained for rollback/debugging."""
+    async def _direct_stream_reply(self, user_text: str, on_tool=None) -> AsyncIterator[str]:
+        """Direct OpenAI-compatible streaming path with safe bridge tools."""
         client = self._get_client()
         messages = [{"role": "system", "content": config.PERSONA}]
         messages.extend(self.history)
