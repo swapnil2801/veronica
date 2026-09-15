@@ -3,7 +3,7 @@
 edge      -> edge-tts neural voices (free cloud, default)
 piper     -> Piper local ONNX TTS (fully offline, runs on this CPU)
 elevenlabs-> ElevenLabs API (premium; requires paid plan for API TTS).
-cartesia  -> Cartesia Sonic cloud TTS.
+
 
 Every engine falls back to edge automatically on failure; piper is also
 the fallback if edge itself dies (offline resilience), so Veronica only
@@ -63,27 +63,6 @@ async def _synth_elevenlabs(text: str) -> bytes:
         return r.content
 
 
-async def _synth_cartesia(text: str) -> bytes:
-    """Cartesia Sonic speech synthesis -> MP3 bytes."""
-    key = config.get_cartesia_key()
-    if not key:
-        raise RuntimeError("Cartesia API key is not configured")
-    async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(
-            "https://api.cartesia.ai/tts/bytes",
-            headers={"X-API-Key": key, "Cartesia-Version": config.CARTESIA_VERSION},
-            json={"model_id": config.CARTESIA_MODEL, "transcript": text,
-                  "voice": {"id": config.get_cartesia_voice()}, "language": "en",
-                  "output_format": {"container": "mp3", "sample_rate": 44100,
-                                    "bit_rate": 128000}},
-        )
-        if r.status_code != 200:
-            raise RuntimeError(f"cartesia {r.status_code}: {r.text[:160]}")
-        if not r.content:
-            raise RuntimeError("Cartesia returned empty audio")
-        return r.content
-
-
 async def _synth_edge(text: str) -> bytes:
     for voice in (config.get_voice(), config.TTS_FALLBACK_VOICE):
         try:
@@ -112,11 +91,7 @@ async def synthesize(text: str) -> bytes:
             return await _synth_piper(text)
         except Exception as e:  # noqa: BLE001
             log.warning("piper failed (%s) -> edge fallback", e)
-    elif engine == "cartesia":
-        try:
-            return await _synth_cartesia(text)
-        except Exception as e:  # noqa: BLE001
-            log.warning("cartesia failed (%s) -> edge fallback", e)
+
     try:
         return await _synth_edge(text)
     except Exception as e:  # noqa: BLE001

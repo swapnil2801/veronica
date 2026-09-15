@@ -37,12 +37,13 @@ app = FastAPI(title="Veronica")
 
 @app.on_event("startup")
 async def warmup():
-    """Preload whisper so the first utterance isn't slow."""
+    """Warm the configured STT path without loading Whisper unnecessarily."""
     import numpy as np
 
     def _load():
-        stt.get_model()
-        stt.transcribe(np.zeros(16000, dtype=np.float32))  # jit warmup
+        if not config.DEEPGRAM_API_KEY:
+            stt.get_model()
+            stt.transcribe(np.zeros(16000, dtype=np.float32))  # jit warmup
 
     await asyncio.to_thread(_load)
     log.info("warmup complete")
@@ -50,7 +51,8 @@ async def warmup():
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "voice": config.get_voice(), "model": config.get_model()}
+    return {"ok": True, "voice": config.get_voice(), "model": config.get_model(),
+            "stt": "deepgram" if config.DEEPGRAM_API_KEY else "local-whisper"}
 
 
 # ---------------- Settings API ----------------
@@ -73,9 +75,7 @@ async def api_settings():
         "piper_voice": config.get_piper_voice(),
         "piper_voices": config.PIPER_VOICE_OPTIONS,
         "piper_available": config.PIPER_BIN.exists(),
-        "cartesia_voice": config.get_cartesia_voice(),
-        "cartesia_voices": config.CARTESIA_VOICE_OPTIONS,
-        "cartesia_available": bool(config.get_cartesia_key()),
+
     }
 
 
@@ -108,21 +108,19 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "cartesia"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
     if "piper_voice" in payload and isinstance(payload["piper_voice"], str) and payload["piper_voice"].strip():
         changed["piper_voice"] = payload["piper_voice"].strip()
-    if "cartesia_voice" in payload and isinstance(payload["cartesia_voice"], str) and payload["cartesia_voice"].strip():
-        changed["cartesia_voice"] = payload["cartesia_voice"].strip()
+
     if changed:
         config.save_settings(changed)
         log.info("settings changed: %s", changed)
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
-            "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
-            "cartesia_voice": config.get_cartesia_voice()}
+            "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -136,10 +134,7 @@ async def api_preview_voice(payload: dict):
             from . import tts as tts_mod
             audio = await tts_mod._synth_piper(text, payload.get("voice"))
             return Response(content=audio, media_type="audio/mpeg")
-        if engine == "cartesia":
-            from . import tts as tts_mod
-            audio = await tts_mod._synth_cartesia(text)
-            return Response(content=audio, media_type="audio/mpeg")
+
         if engine == "elevenlabs":
             from . import tts as tts_mod
             import json as _j
@@ -266,7 +261,7 @@ async def ws_voice(ws: WebSocket):
                     continue
                 pcm = np.concatenate(audio_buf)
                 audio_buf = []
-                text = await asyncio.to_thread(stt.transcribe, pcm)
+                text = await stt.transcribe_async(pcm)
                 if not text:
                     await ws.send_json({"type": "transcript", "text": ""})
                     continue

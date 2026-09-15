@@ -452,7 +452,7 @@ function renderEngines() {
     { id:'edge', label:'Edge Neural', meta:'free · cloud', ok:true },
     { id:'piper', label:'Piper', meta:curSettings.piper_available ? 'free · runs on server · offline' : 'not installed', ok:curSettings.piper_available },
     { id:'elevenlabs', label:'ElevenLabs', meta:curSettings.el_has_key ? 'premium · needs paid plan' : 'no API key', ok:curSettings.el_has_key },
-    { id:'cartesia', label:'Cartesia Sonic', meta:curSettings.cartesia_available ? 'cloud · expressive · fast' : 'no API key', ok:curSettings.cartesia_available },
+
   ];
   for (const e of engines) {
     const d = document.createElement('div');
@@ -473,11 +473,9 @@ function renderVoices() {
   const eng = curSettings.tts_engine;
   const list = eng === 'elevenlabs' ? curSettings.el_voices
              : eng === 'piper' ? curSettings.piper_voices
-             : eng === 'cartesia' ? curSettings.cartesia_voices
              : curSettings.voices;
   const active = eng === 'elevenlabs' ? curSettings.el_voice
                : eng === 'piper' ? curSettings.piper_voice
-               : eng === 'cartesia' ? curSettings.cartesia_voice
                : curSettings.voice;
   for (const v of list) {
     const o = document.createElement('option');
@@ -510,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('selVoice').addEventListener('change', e => {
     if (curSettings.tts_engine === 'elevenlabs') { curSettings.el_voice = e.target.value; saveSettings({ el_voice: e.target.value }); }
     else if (curSettings.tts_engine === 'piper') { curSettings.piper_voice = e.target.value; saveSettings({ piper_voice: e.target.value }); }
-    else if (curSettings.tts_engine === 'cartesia') { curSettings.cartesia_voice = e.target.value; saveSettings({ cartesia_voice: e.target.value }); }
+
     else { curSettings.voice = e.target.value; saveSettings({ voice: e.target.value }); }
   });
   $('previewVoice').addEventListener('click', async () => {
