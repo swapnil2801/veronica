@@ -62,6 +62,13 @@ PIPER_VOICE_OPTIONS = [
     {"id": "hi_IN-priyamvada-medium", "label": "Priyamvada — Hindi female"},
 ]
 
+# --- VoiceStudio (remote OpenAI-compatible TTS) ---
+VOICESTUDIO_BASE_URL = os.environ.get("VERONICA_VOICESTUDIO_URL", "").rstrip("/")
+VOICESTUDIO_API_KEY = os.environ.get("VERONICA_VOICESTUDIO_KEY", "")
+VOICESTUDIO_MODEL = os.environ.get("VERONICA_VOICESTUDIO_MODEL", "omnivoice")
+VOICESTUDIO_VOICE = os.environ.get("VERONICA_VOICESTUDIO_VOICE", "default")
+VOICESTUDIO_VOICE_OPTIONS = [{"id": "default", "label": "VoiceStudio default"}]
+
 # --- LLM ---
 LLM_BASE_URL = os.environ.get("VERONICA_LLM_BASE", "http://localhost:20128/v1")
 LLM_API_KEY = os.environ.get("VERONICA_LLM_KEY", "dummy")
@@ -145,11 +152,15 @@ def get_voice() -> str:
 
 def get_tts_engine() -> str:
     e = load_settings().get("tts_engine", "edge")
-    return e if e in ("edge", "elevenlabs", "piper") else "edge"
+    return e if e in ("edge", "elevenlabs", "piper", "voicestudio") else "edge"
 
 
 def get_piper_voice() -> str:
     return load_settings().get("piper_voice", PIPER_VOICE)
+
+
+def get_voicestudio_voice() -> str:
+    return load_settings().get("voicestudio_voice", VOICESTUDIO_VOICE)
 
 
 def get_el_voice() -> str:
