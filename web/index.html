@@ -65,6 +65,20 @@ html,body{width:100%;min-width:0}body{overflow:hidden}
 body.fs .app{grid-template-columns:minmax(0,1fr) 380px!important;grid-template-rows:100vh!important}.fs .vcol{grid-column:1;max-width:none;width:auto;margin:0;border-right:1px solid var(--line);padding:24px 32px 20px}.fs .chat-panel{grid-column:2;display:flex;border-right:0}.fs .ops{display:none}.fs #stage{min-height:0;flex:1 1 auto!important}.fs .vcol .transcript-label,.fs .vcol #transcript,.fs .vcol #jump,.fs .vcol .textrow{display:none}
 @media(max-width:1100px) and (min-width:761px){.app{grid-template-columns:minmax(320px,40%) minmax(280px,29%) minmax(0,1fr)!important}.vcol{padding-left:20px;padding-right:20px}.chat-panel{padding-left:16px;padding-right:16px}.opshead{padding-left:18px;padding-right:18px}.opsbody{padding-left:18px;padding-right:18px}.opshead .right #clock{display:none}.strip{grid-template-columns:repeat(2,1fr)}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}}
 @media(max-width:760px){body{overflow:auto}.app{display:block!important;height:auto;min-height:100vh}.vcol{height:100vh;min-height:620px;padding:18px}.chat-panel{height:auto;min-height:360px;padding:18px;border:0;border-top:1px solid var(--line)}.ops{display:none!important}.vcontrols{grid-template-columns:minmax(0,1fr) 112px}body.fs{overflow:hidden}body.fs .app{display:grid!important;grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr) auto!important;height:100vh}.fs .vcol{grid-column:1;grid-row:1;height:auto;min-height:0}.fs .chat-panel{grid-column:1;grid-row:2;min-height:220px;height:36vh}.fs #stage{min-height:0}.fs .vcontrols{height:54px}}
+/* Laptop safety breakpoint: reflow operations content instead of allowing overlap. */
+@media(max-width:1450px) and (min-width:761px){
+.app{grid-template-columns:minmax(340px,36%) minmax(280px,27%) minmax(390px,37%)!important}
+.vcol{padding-left:22px;padding-right:22px}.chat-panel{padding-left:18px;padding-right:18px}
+.opshead{height:auto;min-height:112px;padding:18px 22px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:14px 18px;align-content:center}
+.ops-title{min-width:0}.opshead .right{grid-column:2;grid-row:1;display:flex;align-items:center;gap:10px}.opshead .right #clock{display:none}
+.tabs{grid-column:1 / -1;grid-row:2;margin:0;width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.tab{width:100%;min-width:0;padding:9px 6px;overflow:hidden;text-overflow:ellipsis}
+.strip{margin:16px 22px 0;grid-template-columns:repeat(2,minmax(0,1fr))}.metric{min-width:0;padding:14px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}
+.opsbody{padding:22px 22px 36px}.pane{width:100%;max-width:none;min-width:0}
+.arow{grid-template-columns:8px minmax(0,1fr) auto;gap:10px;padding:12px}.arow .astat,.arow .ameta{display:none}.arow .abtns{grid-column:3}.arow .abtns button{min-width:54px;padding:0 7px}
+.cj{grid-template-columns:minmax(80px,100px) minmax(0,1fr);gap:10px;padding:11px 12px}.cj .cs{grid-column:2;justify-self:start;font-size:9px}
+.provgrid{grid-template-columns:1fr;gap:7px}.prov{min-width:0}.setblock{padding:16px}.setdesc{overflow-wrap:anywhere}.selgroup{display:grid;grid-template-columns:minmax(0,1fr) auto;max-width:none}.selgroup button{min-width:78px;padding:0 10px}
+}
 </style>
 </head>
 <body data-vstate="idle">
