@@ -63,23 +63,55 @@ async def _synth_elevenlabs(text: str) -> bytes:
         return r.content
 
 
+        return r.content
+
+
 async def _synth_deepgram(text: str, model: str | None = None) -> bytes:
     """Deepgram Flux TTS batch endpoint -> MP3 bytes."""
     if not config.DEEPGRAM_API_KEY:
         raise RuntimeError("Deepgram API key is not configured")
     voice_model = model or config.get_deepgram_tts_model()
     async with httpx.AsyncClient(timeout=45) as c:
-        r = await c.post(
-            "https://api.deepgram.com/v2/speak",
-            params={"model": voice_model, "encoding": "mp3"},
-            headers={"Authorization": f"Token {config.DEEPGRAM_API_KEY}",
-                     "Content-Type": "application/json"},
-            json={"text": text},
-        )
+        r = await c.post("https://api.deepgram.com/v2/speak",
+                         params={"model": voice_model, "encoding": "mp3"},
+                         headers={"Authorization": f"Token {config.DEEPGRAM_API_KEY}", "Content-Type": "application/json"},
+                         json={"text": text})
         if r.status_code != 200:
             raise RuntimeError(f"deepgram {r.status_code}: {r.text[:160]}")
         if not r.content:
             raise RuntimeError("Deepgram returned empty audio")
+        return r.content
+
+
+async def _synth_cartesia(text: str) -> bytes:
+    """Cartesia Sonic cloud TTS -> MP3 bytes."""
+    key = config.get_cartesia_key()
+    if not key:
+        raise RuntimeError("Cartesia API key is not configured")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post("https://api.cartesia.ai/tts/bytes",
+                         headers={"X-API-Key": key, "Cartesia-Version": config.CARTESIA_VERSION, "Content-Type": "application/json"},
+                         json={"model_id": config.CARTESIA_MODEL, "transcript": text, "voice": {"id": config.get_cartesia_voice()}, "language": "en", "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000}})
+        if r.status_code != 200:
+            raise RuntimeError(f"cartesia {r.status_code}: {r.text[:160]}")
+        if not r.content:
+            raise RuntimeError("Cartesia returned empty audio")
+        return r.content
+
+
+async def _synth_cartesia(text: str) -> bytes:
+    """Cartesia Sonic cloud TTS -> MP3 bytes."""
+    key = config.get_cartesia_key()
+    if not key:
+        raise RuntimeError("Cartesia API key is not configured")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post("https://api.cartesia.ai/tts/bytes",
+                         headers={"X-API-Key": key, "Cartesia-Version": config.CARTESIA_VERSION, "Content-Type": "application/json"},
+                         json={"model_id": config.CARTESIA_MODEL, "transcript": text, "voice": {"id": config.get_cartesia_voice()}, "language": "en", "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000}})
+        if r.status_code != 200:
+            raise RuntimeError(f"cartesia {r.status_code}: {r.text[:160]}")
+        if not r.content:
+            raise RuntimeError("Cartesia returned empty audio")
         return r.content
 
 
@@ -101,7 +133,12 @@ async def _synth_edge(text: str) -> bytes:
 async def synthesize(text: str) -> bytes:
     """Synthesize one utterance to MP3 bytes. Raises on total failure."""
     engine = config.get_tts_engine()
-    if engine == "deepgram":
+    if engine == "cartesia":
+        try:
+            return await _synth_cartesia(text)
+        except Exception as e:  # noqa: BLE001
+            log.warning("cartesia failed (%s) -> edge fallback", e)
+    elif engine == "deepgram":
         try:
             return await _synth_deepgram(text)
         except Exception as e:  # noqa: BLE001

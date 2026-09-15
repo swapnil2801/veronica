@@ -78,6 +78,9 @@ async def api_settings():
         "deepgram_tts_model": config.get_deepgram_tts_model(),
         "deepgram_tts_voices": config.DEEPGRAM_TTS_VOICE_OPTIONS,
         "deepgram_tts_available": bool(config.DEEPGRAM_API_KEY),
+        "cartesia_voice": config.get_cartesia_voice(),
+        "cartesia_voices": config.CARTESIA_VOICE_OPTIONS,
+        "cartesia_available": bool(config.get_cartesia_key()),
         "stt_engine": config.get_stt_engine(),
         "stt_options": [
             {"id": "deepgram", "label": "Deepgram Flux", "meta": "fast cloud transcription", "available": bool(config.DEEPGRAM_API_KEY)},
@@ -116,7 +119,7 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram", "cartesia"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
@@ -128,6 +131,8 @@ async def api_set_settings(payload: dict):
     if "deepgram_tts_model" in payload and isinstance(payload["deepgram_tts_model"], str):
         if payload["deepgram_tts_model"] in {v["id"] for v in config.DEEPGRAM_TTS_VOICE_OPTIONS}:
             changed["deepgram_tts_model"] = payload["deepgram_tts_model"]
+    if "cartesia_voice" in payload and isinstance(payload["cartesia_voice"], str) and payload["cartesia_voice"].strip():
+        changed["cartesia_voice"] = payload["cartesia_voice"].strip()
 
     if changed:
         config.save_settings(changed)
@@ -135,7 +140,8 @@ async def api_set_settings(payload: dict):
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
             "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
-            "stt_engine": config.get_stt_engine(), "deepgram_tts_model": config.get_deepgram_tts_model()}
+            "stt_engine": config.get_stt_engine(), "deepgram_tts_model": config.get_deepgram_tts_model(),
+            "cartesia_voice": config.get_cartesia_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -170,6 +176,10 @@ async def api_preview_voice(payload: dict):
         if engine == "deepgram":
             from . import tts as tts_mod
             audio = await tts_mod._synth_deepgram(text, payload.get("voice"))
+            return Response(content=audio, media_type="audio/mpeg")
+        if engine == "cartesia":
+            from . import tts as tts_mod
+            audio = await tts_mod._synth_cartesia(text)
             return Response(content=audio, media_type="audio/mpeg")
         voice = (payload.get("voice") or config.get_voice()).strip()
         import edge_tts

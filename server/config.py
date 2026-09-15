@@ -92,10 +92,22 @@ DEEPGRAM_TTS_VOICE_OPTIONS = [
     {"id": "flux-alexis-en", "label": "Alexis — conversational female"},
     {"id": "flux-haley-en", "label": "Haley — conversational female"},
 ]
+CARTESIA_MODEL = os.environ.get("VERONICA_CARTESIA_MODEL", "sonic-3.6")
+CARTESIA_VERSION = "2026-08-14"
+CARTESIA_VOICE = os.environ.get("VERONICA_CARTESIA_VOICE", "cb9c954d-bcaa-43ed-82bf-aeb5e88a3cb5")
+CARTESIA_VOICE_OPTIONS = [{"id": CARTESIA_VOICE, "label": "Kabir — Cartesia Hindi male"}]
 
 
 def get_deepgram_tts_model() -> str:
     return load_settings().get("deepgram_tts_model", DEEPGRAM_TTS_MODEL)
+
+
+def get_cartesia_key() -> str:
+    return os.environ.get("VERONICA_CARTESIA_KEY", "") or _read_env_key("CARTESIA_API_KEY", "~/technologia/.env", "~/.hermes/profiles/technologia/.env", "~/.hermes/.env")
+
+
+def get_cartesia_voice() -> str:
+    return load_settings().get("cartesia_voice", CARTESIA_VOICE)
 
 
 def get_stt_engine() -> str:
@@ -167,7 +179,7 @@ def get_voice() -> str:
 
 def get_tts_engine() -> str:
     e = load_settings().get("tts_engine", "edge")
-    return e if e in ("edge", "elevenlabs", "piper", "deepgram") else "edge"
+    return e if e in ("edge", "elevenlabs", "piper", "deepgram", "cartesia") else "edge"
 
 
 def get_piper_voice() -> str:
