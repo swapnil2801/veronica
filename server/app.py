@@ -41,7 +41,7 @@ async def warmup():
     import numpy as np
 
     def _load():
-        if not config.DEEPGRAM_API_KEY:
+        if config.get_stt_engine() != "deepgram" or not config.DEEPGRAM_API_KEY:
             stt.get_model()
             stt.transcribe(np.zeros(16000, dtype=np.float32))  # jit warmup
 
@@ -52,7 +52,7 @@ async def warmup():
 @app.get("/health")
 async def health():
     return {"ok": True, "voice": config.get_voice(), "model": config.get_model(),
-            "stt": "deepgram" if config.DEEPGRAM_API_KEY else "local-whisper"}
+            "stt": config.get_stt_engine()}
 
 
 # ---------------- Settings API ----------------
@@ -75,6 +75,11 @@ async def api_settings():
         "piper_voice": config.get_piper_voice(),
         "piper_voices": config.PIPER_VOICE_OPTIONS,
         "piper_available": config.PIPER_BIN.exists(),
+        "stt_engine": config.get_stt_engine(),
+        "stt_options": [
+            {"id": "deepgram", "label": "Deepgram Flux", "meta": "fast cloud transcription", "available": bool(config.DEEPGRAM_API_KEY)},
+            {"id": "local-whisper", "label": "Local Whisper", "meta": "offline fallback", "available": True},
+        ],
 
     }
 
@@ -114,13 +119,17 @@ async def api_set_settings(payload: dict):
         changed["el_voice"] = payload["el_voice"].strip()
     if "piper_voice" in payload and isinstance(payload["piper_voice"], str) and payload["piper_voice"].strip():
         changed["piper_voice"] = payload["piper_voice"].strip()
+    if "stt_engine" in payload and payload["stt_engine"] in ("deepgram", "local-whisper"):
+        if payload["stt_engine"] != "deepgram" or config.DEEPGRAM_API_KEY:
+            changed["stt_engine"] = payload["stt_engine"]
 
     if changed:
         config.save_settings(changed)
         log.info("settings changed: %s", changed)
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
-            "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice()}
+            "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
+            "stt_engine": config.get_stt_engine()}
 
 
 @app.post("/api/settings/preview_voice")

@@ -96,7 +96,7 @@ async def transcribe_deepgram(pcm_f32: np.ndarray) -> str:
 
 async def transcribe_async(pcm_f32: np.ndarray) -> str:
     """Use Deepgram when configured; otherwise use the local Whisper path."""
-    if config.DEEPGRAM_API_KEY:
+    if config.get_stt_engine() == "deepgram" and config.DEEPGRAM_API_KEY:
         try:
             return await transcribe_deepgram(pcm_f32)
         except Exception as e:  # noqa: BLE001

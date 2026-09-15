@@ -86,6 +86,11 @@ DEEPGRAM_API_KEY = os.environ.get("VERONICA_DEEPGRAM_KEY", "")
 DEEPGRAM_MODEL = os.environ.get("VERONICA_DEEPGRAM_MODEL", "flux-general-en")
 
 
+def get_stt_engine() -> str:
+    engine = load_settings().get("stt_engine", "deepgram" if DEEPGRAM_API_KEY else "local-whisper")
+    return engine if engine in ("deepgram", "local-whisper") else "local-whisper"
+
+
 # OpenAI-compatible providers Veronica can switch between
 PROVIDERS = {
     "local": {

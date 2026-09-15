@@ -467,6 +467,17 @@ function renderEngines() {
     g.appendChild(d);
   }
 }
+function renderSttOptions() {
+  const g = $('sttGrid'); if (!g || !curSettings.stt_options) return;
+  g.innerHTML = '';
+  for (const option of curSettings.stt_options) {
+    const d = document.createElement('div');
+    d.className = 'prov' + (option.id === curSettings.stt_engine ? ' sel' : '') + (option.available ? '' : ' nokey');
+    d.innerHTML = `<div class="pname">${option.label}</div><div class="pmeta">${option.available ? option.meta : 'not configured'}</div>`;
+    if (option.available) d.addEventListener('click', async () => { await saveSettings({ stt_engine: option.id }); await loadSettings(); });
+    g.appendChild(d);
+  }
+}
 function renderVoices() {
   const sv = $('selVoice');
   sv.innerHTML = '';
@@ -490,6 +501,7 @@ async function loadSettings() {
     renderProviders();
     await loadModels();
     renderEngines();
+    renderSttOptions();
     renderVoices();
     $('setStatus').textContent = `active → ${curSettings.provider} · ${curSettings.model} · ${curSettings.tts_engine}:${curSettings.tts_engine === 'elevenlabs' ? curSettings.el_voice : curSettings.voice}`;
   } catch (e) { $('setStatus').textContent = 'failed to load settings'; }
