@@ -6,7 +6,7 @@
 <title>VERONICA — Hermes Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body data-vstate="idle">
 <div class="app">
@@ -28,7 +28,7 @@
 
       <div class="stage-bar top">
         <span class="stage-caption">voice interface · ready</span>
-        <span id="vstatebar"><span id="vstate" role="status" aria-live="polite">idle</span></span>
+        <span id="vstatebar"><span id="vstate" role="status" aria-live="polite">idle</span><span id="moodTag" title="How Veronica is feeling">· neutral</span></span>
         <span class="stage-right"><span class="stage-index">01 — 2026</span><button id="fsbtn" title="Presence mode (fullscreen)" aria-label="Toggle presence mode">⛶</button></span>
       </div>
       <div class="stage-bar bottom">
@@ -37,6 +37,19 @@
       </div>
     </div>
 
+    <div class="mood-row" aria-label="Set Veronica's mood">
+      <span class="mood-label">mood</span>
+      <button type="button" data-mood="happy" title="happy">☺</button>
+      <button type="button" data-mood="warm" title="warm">♡</button>
+      <button type="button" data-mood="playful" title="playful">~</button>
+      <button type="button" data-mood="excited" title="excited">✦</button>
+      <button type="button" data-mood="shy" title="shy">…</button>
+      <button type="button" data-mood="thinking" title="thinking">?</button>
+      <button type="button" data-mood="surprised" title="surprised">!?</button>
+      <button type="button" data-mood="concerned" title="concerned">!</button>
+      <button type="button" data-mood="sad" title="sad">↓</button>
+      <button type="button" data-mood="neutral" title="reset" class="reset">reset</button>
+    </div>
     <div class="vcontrols">
       <button id="ptt" aria-label="Hold to talk">● Hold to talk</button>
       <button id="handsfree" aria-pressed="false">Hands-free</button>
@@ -104,6 +117,6 @@
   </section>
 
 </div>
-<script src="vendor/live2dcubismcore.min.js"></script><script src="vendor/pixi.min.js"></script><script src="vendor/cubism4.min.js"></script><script src="app.js?v=3"></script>
+<script src="vendor/live2dcubismcore.min.js"></script><script src="vendor/pixi.min.js"></script><script src="vendor/cubism4.min.js"></script><script src="app.js?v=8"></script>
 </body>
 </html>

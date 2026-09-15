@@ -303,6 +303,9 @@ async def ws_voice(ws: WebSocket):
                     await ws.send_json({"type": "transcript", "text": user_text})
                     await respond(ws, brain, user_text)
 
+            elif data.get("type") == "greet":
+                await respond(ws, brain, None)
+
     except WebSocketDisconnect:
         log.info("voice session closed")
     except Exception:
@@ -313,8 +316,11 @@ async def ws_voice(ws: WebSocket):
             pass
 
 
-async def respond(ws: WebSocket, brain: Brain, user_text: str):
-    """Stream LLM reply; TTS each sentence eagerly and ship audio in order."""
+async def respond(ws: WebSocket, brain: Brain, user_text: str | None):
+    """Stream LLM reply; TTS each sentence eagerly and ship audio in order.
+
+    user_text=None means "Boss just arrived" — Veronica greets him.
+    """
     streamer = tts.SentenceStreamer()
     tts_queue: asyncio.Queue = asyncio.Queue()
 
@@ -349,8 +355,13 @@ async def respond(ws: WebSocket, brain: Brain, user_text: str):
     async def on_tool(name, args):
         await ws.send_json({"type": "tool", "name": name, "args": args})
 
+    async def on_mood(mood):
+        await ws.send_json({"type": "mood", "mood": mood})
+
     try:
-        async for delta in brain.stream_reply(user_text, on_tool=on_tool):
+        gen = (brain.stream_greeting(on_mood=on_mood) if user_text is None
+               else brain.stream_reply(user_text, on_tool=on_tool, on_mood=on_mood))
+        async for delta in gen:
             await ws.send_json({"type": "reply_delta", "text": delta})
             for sentence in streamer.feed(delta):
                 await tts_queue.put(sentence)

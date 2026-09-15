@@ -10,7 +10,7 @@ const CHARACTERS = {
   haru: { label: 'Haru · current', model: 'models/haru/haru_greeter_t03.model3.json', note: 'Live2D sample model' },
   hiyori: { label: 'Hiyori · new option', model: 'models/Hiyori/Hiyori.model3.json', note: 'Live2D sample model' },
 };
-let mouthVal = 0, mouthTarget = 0;
+let mouthVal = 0, mouthTarget = 0, moodRelax = null;
 
 // VAD (hands-free)
 let vadSpeaking = false, vadSilenceMs = 0, vadLastTick = 0, vadSpeechMs = 0;
@@ -28,6 +28,7 @@ function autoScroll(force) {
 tx && tx.addEventListener && tx.addEventListener('scroll', () => { if (nearBottom()) $('jump').classList.remove('show'); });
 document.addEventListener('DOMContentLoaded', () => {
   $('jump').addEventListener('click', () => autoScroll(true));
+  document.querySelectorAll('.mood-row button').forEach(b => b.addEventListener('click', () => setMood(b.dataset.mood, 6000)));
 });
 
 const HINTS = { idle:'ready', listening:'listening…', thinking:'thinking…', speaking:'speaking' };
@@ -51,6 +52,52 @@ setInterval(() => {
   $('clock').textContent = new Date().toLocaleString('en-IN', { hour12:false,
     weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }, 1000);
+
+/* ---------------- Expressions (mood -> face) ----------------
+   Moods arrive from the server as the first token of every reply. We blend
+   raw Cubism parameters ourselves (Haru and Hiyori share the standard eye,
+   brow, mouth and cheek parameter ids) so one table works for every
+   character and eases smoothly instead of snapping.
+   Eye-open values are multipliers (1 = untouched) so blinking still works;
+   everything else is added on top of the running motion. */
+const EYE_KEYS = new Set(['ParamEyeLOpen', 'ParamEyeROpen']);
+const MOODS = {
+  neutral:   {},
+  happy:     { ParamEyeLSmile:1, ParamEyeRSmile:1, ParamMouthForm:1.2, ParamMouthOpenY:.25, ParamBrowLY:.4, ParamBrowRY:.4, ParamCheek:.6, ParamAngleZ:3 },
+  warm:      { ParamEyeLSmile:.45, ParamEyeRSmile:.45, ParamEyeLOpen:.75, ParamEyeROpen:.75, ParamMouthForm:.6, ParamBrowLY:.1, ParamBrowRY:.1, ParamCheek:.5, ParamAngleZ:-4 },
+  excited:   { ParamEyeLOpen:1.25, ParamEyeROpen:1.25, ParamEyeLSmile:.5, ParamEyeRSmile:.5, ParamMouthForm:1, ParamBrowLY:.7, ParamBrowRY:.7, ParamCheek:.5, ParamBodyAngleY:3 },
+  playful:   { ParamEyeLOpen:.55, ParamEyeLSmile:.6, ParamMouthForm:.8, ParamBrowLY:.3, ParamBrowRY:-.1, ParamBrowRAngle:.3, ParamAngleZ:6, ParamCheek:.3 },
+  shy:       { ParamEyeLOpen:.6, ParamEyeROpen:.6, ParamEyeBallY:-.4, ParamEyeBallX:.3, ParamMouthForm:.35, ParamBrowLY:-.1, ParamBrowRY:-.1, ParamCheek:1, ParamTere:1, ParamAngleZ:-6, ParamAngleY:-6 },
+  thinking:  { ParamEyeLOpen:.8, ParamEyeROpen:.85, ParamEyeBallX:.5, ParamEyeBallY:.4, ParamBrowLY:-.2, ParamBrowRY:.2, ParamBrowRAngle:.3, ParamMouthForm:-.2, ParamAngleZ:5, ParamAngleX:-6 },
+  concerned: { ParamEyeLOpen:.9, ParamEyeROpen:.9, ParamBrowLY:-.55, ParamBrowRY:-.55, ParamBrowLAngle:.35, ParamBrowRAngle:.35, ParamBrowLForm:-.6, ParamBrowRForm:-.6, ParamMouthForm:-.7, ParamAngleY:-4 },
+  sad:       { ParamEyeLOpen:.55, ParamEyeROpen:.55, ParamEyeBallY:-.5, ParamBrowLY:-.7, ParamBrowRY:-.7, ParamBrowLAngle:.5, ParamBrowRAngle:.5, ParamMouthForm:-1.2, ParamAngleY:-10, ParamBodyAngleY:-3 },
+  surprised: { ParamEyeLOpen:1.4, ParamEyeROpen:1.4, ParamBrowLY:1, ParamBrowRY:1, ParamBrowLForm:1, ParamBrowRForm:1, ParamMouthForm:-.6, ParamMouthOpenY:.7, ParamEyeBallForm:-.6, ParamEyeBallY:.2, ParamAngleY:6, ParamBodyAngleY:-3 },
+};
+const MOOD_ICON = { neutral:'·', happy:'☺', warm:'♡', excited:'✦', playful:'~', shy:'…', thinking:'?', concerned:'!', sad:'↓', surprised:'!?' };
+const MOOD_PARAMS = [...new Set(Object.values(MOODS).flatMap(Object.keys))];
+let moodName = 'neutral', moodCur = {}, moodHoldUntil = Infinity;
+const restOf = k => EYE_KEYS.has(k) ? 1 : 0;
+function setMood(name, holdMs) {
+  if (!MOODS[name]) name = 'neutral';
+  moodName = name;
+  moodHoldUntil = holdMs ? performance.now() + holdMs : Infinity;
+  document.body.dataset.mood = name;
+  const el = $('moodTag'); if (el) el.textContent = `${MOOD_ICON[name] || ''} ${name}`;
+  document.querySelectorAll('.mood-row button').forEach(b => b.classList.toggle('sel', b.dataset.mood === name));
+}
+function applyMood(core) {
+  if (moodHoldUntil !== Infinity && performance.now() > moodHoldUntil) setMood('neutral');
+  const tgt = MOODS[moodName] || {};
+  for (const k of MOOD_PARAMS) {
+    const t = (k in tgt) ? tgt[k] : restOf(k);
+    const c = (k in moodCur) ? moodCur[k] : restOf(k);
+    const v = moodCur[k] = c + (t - c) * 0.08; // ~0.4 s ease at 30 fps
+    try {
+      if (EYE_KEYS.has(k)) { if (Math.abs(v - 1) > 0.002) core.multiplyParameterValueById(k, v); }
+      else if (Math.abs(v) > 0.002) core.addParameterValueById(k, v);
+    } catch (e) {}
+  }
+}
 
 /* ---------------- Live2D ---------------- */
 function fitModel() {
@@ -106,7 +153,8 @@ async function loadCharacter(characterId) {
     localStorage.setItem('veronica-character', activeCharacter);
     const picker = $('characterSelect');
     if (picker) picker.value = activeCharacter;
-    model.on('hit', () => { try { model.motion('Tap'); } catch(e) { try { model.motion('TapBody'); } catch (_) {} } });
+    model.on('hit', () => { setMood(Math.random() < 0.5 ? 'playful' : 'shy', 4000); try { model.motion('Tap'); } catch(e) { try { model.motion('TapBody'); } catch (_) {} } });
+    setMood(moodName);
 
     // Keep lip-sync frame-locked after each motion update for every model option.
     const mm = model.internalModel.motionManager;
@@ -114,8 +162,10 @@ async function loadCharacter(characterId) {
     mm.update = (...a) => {
       const r = origUpdate(...a);
       mouthVal += (mouthTarget - mouthVal) * 0.5;
+      const core = model.internalModel.coreModel;
+      applyMood(core);
       if (playing) {
-        try { model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthVal); } catch (e) {}
+        try { core.setParameterValueById('ParamMouthOpenY', mouthVal); } catch (e) {}
       }
       return r;
     };
@@ -208,12 +258,15 @@ document.addEventListener('keydown', e => {
 /* ---------------- Voice WS ----------------
    Text renders as tokens arrive; audio continues independently so the chat
    never feels blocked by TTS or audio decoding. */
-let replySpan = null;
+let replySpan = null, greeted = false;
 function connectVoice() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws/voice`);
   ws.binaryType = 'arraybuffer';
-  ws.onopen = () => { $('connTxt').textContent = 'online'; $('connState').classList.add('on'); };
+  ws.onopen = () => {
+    $('connTxt').textContent = 'online'; $('connState').classList.add('on');
+    if (!greeted) { greeted = true; setTimeout(() => { if (ws.readyState === 1) { ws.send(JSON.stringify({ type:'greet' })); setState('thinking'); } }, 900); }
+  };
   ws.onclose = () => { $('connTxt').textContent = 'reconnecting'; $('connState').classList.remove('on'); setTimeout(connectVoice, 2000); };
   ws.onmessage = (ev) => {
     if (ev.data instanceof ArrayBuffer) {
@@ -228,6 +281,8 @@ function connectVoice() {
       showReplyDelta(m.text || '');
     } else if (m.type === 'tool') {
       addLine('action', `⚙ ${m.name.replaceAll('_',' ')}`, 'tool');
+    } else if (m.type === 'mood') {
+      setMood(m.mood);
     } else if (m.type === 'audio_sentence') {
       pendingText = m.text || '';
     } else if (m.type === 'caption') {
@@ -269,6 +324,7 @@ async function pump() {
   }
   playing = false; mouthTarget = 0;
   setState(capturing || handsFree ? 'listening' : 'idle');
+  clearTimeout(moodRelax); moodRelax = setTimeout(() => setMood('neutral'), 9000);
 }
 
 function ensureCtx() {
@@ -312,7 +368,7 @@ function onPcm(f32) {
   } else if (capturing) sendPcm(f32);
 }
 const sendPcm = f32 => { if (ws && ws.readyState === 1) ws.send(f32.buffer); };
-const endUtterance = () => { if (ws && ws.readyState === 1) { ws.send(JSON.stringify({type:'end_utterance'})); setState('thinking'); } };
+const endUtterance = () => { if (ws && ws.readyState === 1) { ws.send(JSON.stringify({type:'end_utterance'})); setState('thinking'); setMood('thinking'); } };
 
 const ptt = $('ptt');
 async function pttDown(e) { e.preventDefault(); await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); capturing = true; ptt.classList.add('active'); setState('listening'); }
@@ -332,7 +388,7 @@ $('handsfree').addEventListener('click', async () => {
 const tin = $('textin');
 function sendText() {
   const t = tin.value.trim(); if (!t || !ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({type:'text', text:t})); tin.value = ''; setState('thinking');
+  ws.send(JSON.stringify({type:'text', text:t})); tin.value = ''; setState('thinking'); setMood('thinking');
 }
 const chatForm = $('chatForm');
 chatForm.addEventListener('submit', e => { e.preventDefault(); sendText(); });
