@@ -94,8 +94,8 @@ CARTESIA_VOICE_OPTIONS = [
 
 def get_cartesia_key() -> str:
     return os.environ.get("VERONICA_CARTESIA_KEY", "") or _read_env_key(
-        "CARTESIA_API_KEY", "~/.hermes/profiles/technologia/.env",
-        "~/technologia/.env", "~/.hermes/.env"
+        "CARTESIA_API_KEY", "~/technologia/.env",
+        "~/.hermes/profiles/technologia/.env", "~/.hermes/.env"
     )
 
 

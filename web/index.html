@@ -87,6 +87,10 @@ body.fs .app{grid-template-columns:minmax(0,1fr) 380px!important;grid-template-r
 @media(max-width:1450px) and (min-width:761px){
 .opshead .tabs{position:static!important;transform:none!important;float:none!important}.opshead .right{position:static!important;transform:none!important}
 }
+/* Keep the right header inside laptop viewports. */
+.opshead .right{max-width:100%;overflow:hidden}.opshead .right #clock{display:block;min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;letter-spacing:0}.opshead .right #connState{flex:0 0 auto;white-space:nowrap}
+@media(max-width:1450px){.opshead .right #clock{max-width:112px}.opshead .right{gap:8px}.opshead .right #connState{font-size:9px}.opshead .right #connState #connTxt{display:none}.opshead .right #connState .dot{display:block}}
+@media(max-width:1100px) and (min-width:761px){.opshead .right #clock{display:none}}
 </style>
 </head>
 <body data-vstate="idle">
