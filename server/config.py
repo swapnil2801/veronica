@@ -84,6 +84,17 @@ def _read_env_key(name: str, *files) -> str:
 # --- Deepgram Flux STT ---
 DEEPGRAM_API_KEY = os.environ.get("VERONICA_DEEPGRAM_KEY", "")
 DEEPGRAM_MODEL = os.environ.get("VERONICA_DEEPGRAM_MODEL", "flux-general-en")
+DEEPGRAM_TTS_MODEL = os.environ.get("VERONICA_DEEPGRAM_TTS_MODEL", "aura-2-thalia-en")
+DEEPGRAM_TTS_VOICE_OPTIONS = [
+    {"id": "aura-2-thalia-en", "label": "Thalia — warm conversational"},
+    {"id": "aura-2-helena-en", "label": "Helena — caring and natural"},
+    {"id": "aura-2-andromeda-en", "label": "Andromeda — expressive"},
+    {"id": "aura-2-aries-en", "label": "Aries — warm and energetic"},
+]
+
+
+def get_deepgram_tts_model() -> str:
+    return load_settings().get("deepgram_tts_model", DEEPGRAM_TTS_MODEL)
 
 
 def get_stt_engine() -> str:
@@ -155,7 +166,7 @@ def get_voice() -> str:
 
 def get_tts_engine() -> str:
     e = load_settings().get("tts_engine", "edge")
-    return e if e in ("edge", "elevenlabs", "piper") else "edge"
+    return e if e in ("edge", "elevenlabs", "piper", "deepgram") else "edge"
 
 
 def get_piper_voice() -> str:

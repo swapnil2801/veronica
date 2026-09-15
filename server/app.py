@@ -75,6 +75,9 @@ async def api_settings():
         "piper_voice": config.get_piper_voice(),
         "piper_voices": config.PIPER_VOICE_OPTIONS,
         "piper_available": config.PIPER_BIN.exists(),
+        "deepgram_tts_model": config.get_deepgram_tts_model(),
+        "deepgram_tts_voices": config.DEEPGRAM_TTS_VOICE_OPTIONS,
+        "deepgram_tts_available": bool(config.DEEPGRAM_API_KEY),
         "stt_engine": config.get_stt_engine(),
         "stt_options": [
             {"id": "deepgram", "label": "Deepgram Flux", "meta": "fast cloud transcription", "available": bool(config.DEEPGRAM_API_KEY)},
@@ -113,7 +116,7 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
@@ -122,6 +125,9 @@ async def api_set_settings(payload: dict):
     if "stt_engine" in payload and payload["stt_engine"] in ("deepgram", "local-whisper"):
         if payload["stt_engine"] != "deepgram" or config.DEEPGRAM_API_KEY:
             changed["stt_engine"] = payload["stt_engine"]
+    if "deepgram_tts_model" in payload and isinstance(payload["deepgram_tts_model"], str):
+        if payload["deepgram_tts_model"] in {v["id"] for v in config.DEEPGRAM_TTS_VOICE_OPTIONS}:
+            changed["deepgram_tts_model"] = payload["deepgram_tts_model"]
 
     if changed:
         config.save_settings(changed)
@@ -129,7 +135,7 @@ async def api_set_settings(payload: dict):
     return {"ok": True, "provider": config.get_provider(), "model": config.get_model(),
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
             "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
-            "stt_engine": config.get_stt_engine()}
+            "stt_engine": config.get_stt_engine(), "deepgram_tts_model": config.get_deepgram_tts_model()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -161,6 +167,10 @@ async def api_preview_voice(payload: dict):
                     detail = r.text[:200]
                     return {"error": f"elevenlabs {r.status_code}", "detail": detail}
                 return Response(content=r.content, media_type="audio/mpeg")
+        if engine == "deepgram":
+            from . import tts as tts_mod
+            audio = await tts_mod._synth_deepgram(text, payload.get("voice"))
+            return Response(content=audio, media_type="audio/mpeg")
         voice = (payload.get("voice") or config.get_voice()).strip()
         import edge_tts
         buf = bytearray()

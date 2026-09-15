@@ -63,6 +63,26 @@ async def _synth_elevenlabs(text: str) -> bytes:
         return r.content
 
 
+async def _synth_deepgram(text: str, model: str | None = None) -> bytes:
+    """Deepgram Aura TTS -> MP3 bytes."""
+    if not config.DEEPGRAM_API_KEY:
+        raise RuntimeError("Deepgram API key is not configured")
+    voice_model = model or config.get_deepgram_tts_model()
+    async with httpx.AsyncClient(timeout=45) as c:
+        r = await c.post(
+            "https://api.deepgram.com/v1/speak",
+            params={"model": voice_model, "encoding": "mp3"},
+            headers={"Authorization": f"Token {config.DEEPGRAM_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"text": text},
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"deepgram {r.status_code}: {r.text[:160]}")
+        if not r.content:
+            raise RuntimeError("Deepgram returned empty audio")
+        return r.content
+
+
 async def _synth_edge(text: str) -> bytes:
     for voice in (config.get_voice(), config.TTS_FALLBACK_VOICE):
         try:
@@ -81,7 +101,12 @@ async def _synth_edge(text: str) -> bytes:
 async def synthesize(text: str) -> bytes:
     """Synthesize one utterance to MP3 bytes. Raises on total failure."""
     engine = config.get_tts_engine()
-    if engine == "elevenlabs":
+    if engine == "deepgram":
+        try:
+            return await _synth_deepgram(text)
+        except Exception as e:  # noqa: BLE001
+            log.warning("deepgram TTS failed (%s) -> edge fallback", e)
+    elif engine == "elevenlabs":
         try:
             return await _synth_elevenlabs(text)
         except Exception as e:  # noqa: BLE001

@@ -452,6 +452,7 @@ function renderEngines() {
     { id:'edge', label:'Edge Neural', meta:'free · cloud', ok:true },
     { id:'piper', label:'Piper', meta:curSettings.piper_available ? 'free · runs on server · offline' : 'not installed', ok:curSettings.piper_available },
     { id:'elevenlabs', label:'ElevenLabs', meta:curSettings.el_has_key ? 'premium · needs paid plan' : 'no API key', ok:curSettings.el_has_key },
+    { id:'deepgram', label:'Deepgram Aura', meta:curSettings.deepgram_tts_available ? 'cloud · fast voice agent' : 'not configured', ok:curSettings.deepgram_tts_available },
 
   ];
   for (const e of engines) {
@@ -484,9 +485,11 @@ function renderVoices() {
   const eng = curSettings.tts_engine;
   const list = eng === 'elevenlabs' ? curSettings.el_voices
              : eng === 'piper' ? curSettings.piper_voices
+             : eng === 'deepgram' ? curSettings.deepgram_tts_voices
              : curSettings.voices;
   const active = eng === 'elevenlabs' ? curSettings.el_voice
                : eng === 'piper' ? curSettings.piper_voice
+               : eng === 'deepgram' ? curSettings.deepgram_tts_model
                : curSettings.voice;
   for (const v of list) {
     const o = document.createElement('option');
@@ -503,7 +506,7 @@ async function loadSettings() {
     renderEngines();
     renderSttOptions();
     renderVoices();
-    $('setStatus').textContent = `active → ${curSettings.provider} · ${curSettings.model} · ${curSettings.tts_engine}:${curSettings.tts_engine === 'elevenlabs' ? curSettings.el_voice : curSettings.voice}`;
+    $('setStatus').textContent = `active → ${curSettings.provider} · ${curSettings.model} · ${curSettings.tts_engine}:${curSettings.tts_engine === 'elevenlabs' ? curSettings.el_voice : curSettings.tts_engine === 'deepgram' ? curSettings.deepgram_tts_model : curSettings.voice}`;
   } catch (e) { $('setStatus').textContent = 'failed to load settings'; }
 }
 async function saveSettings(part) {
@@ -520,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('selVoice').addEventListener('change', e => {
     if (curSettings.tts_engine === 'elevenlabs') { curSettings.el_voice = e.target.value; saveSettings({ el_voice: e.target.value }); }
     else if (curSettings.tts_engine === 'piper') { curSettings.piper_voice = e.target.value; saveSettings({ piper_voice: e.target.value }); }
+    else if (curSettings.tts_engine === 'deepgram') { curSettings.deepgram_tts_model = e.target.value; saveSettings({ deepgram_tts_model: e.target.value }); }
 
     else { curSettings.voice = e.target.value; saveSettings({ voice: e.target.value }); }
   });
