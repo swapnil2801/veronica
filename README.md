@@ -27,7 +27,7 @@ veronica/
 │   ├── index.html     #   dashboard UI
 │   ├── app.js         #   voice, avatar, panels, settings
 │   ├── capture-worklet.js  # mic downsampler (AudioWorklet)
-│   ├── models/haru/   #   Live2D sample model (Live2D sample license)
+│   ├── models/        #   Haru, Hiyori, Epsilon, Tsumiki, Shizuku, Kei (Live2D sample models)
 │   └── vendor/        #   pixi.js, pixi-live2d-display, cubism core
 ├── deploy/
 │   └── veronica.service   # systemd user unit
@@ -79,4 +79,4 @@ Runtime choices (provider/model/voice) are made in the **Settings** tab and pers
 
 ## License
 
-MIT (code). The bundled Haru model is © Live2D Inc., redistributed under the [Live2D sample-model terms](https://www.live2d.com/eula/live2d-sample-model-terms_en.html); vendor JS libraries keep their upstream licenses.
+MIT (code). The bundled Haru, Hiyori, Epsilon, Tsumiki, Shizuku and Kei models are © Live2D Inc. and redistributed under the [Live2D sample-model terms](https://www.live2d.com/eula/live2d-sample-model-terms_en.html); vendor JS libraries keep their upstream licenses. See `docs/CHARACTERS.md` and `web/models/LIVE2D-LICENSE.md` before commercial redistribution.

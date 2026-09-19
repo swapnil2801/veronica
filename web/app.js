@@ -6,10 +6,50 @@ let model = null, pixiApp = null;
 let activeCharacter = localStorage.getItem('veronica-character') || 'haru';
 let micLevel = 0;
 
+/* Character registry. Every entry is an official Live2D sample model with
+   full-face rigging (eyes, brows, mouth form, cheeks) so the mood engine and
+   lip-sync work on all of them.
+   legacy=true → Cubism 2-era ids (PARAM_MOUTH_OPEN_Y …); we alias them.
+   fit = per-layout framing tweak [widthMul, heightMul, yShift] (n=normal, fs=fullscreen). */
 const CHARACTERS = {
-  haru: { label: 'Haru · current', model: 'models/haru/haru_greeter_t03.model3.json', note: 'Live2D sample model' },
-  hiyori: { label: 'Hiyori · new option', model: 'models/Hiyori/Hiyori.model3.json', note: 'Live2D sample model' },
+  haru:    { label: 'Haru',    model: 'models/haru/haru_greeter_t03.model3.json' },
+  hiyori:  { label: 'Hiyori',  model: 'models/Hiyori/Hiyori.model3.json' },
+  epsilon: { label: 'Epsilon', model: 'models/Epsilon/Epsilon_free.model3.json', legacy: true, fit: { n: [1.0, 1.0, 0.0],  fs: [0.72, 1.0, 0.0] } },
+  tsumiki: { label: 'Tsumiki', model: 'models/Tsumiki/tsumiki.model3.json', legacy: true, fit: { n: [1.7, 1.7, 0.0],  fs: [0.95, 1.2, -0.04] } },
+  shizuku: { label: 'Shizuku', model: 'models/Shizuku/shizuku.model3.json', legacy: true, fit: { n: [0.9, 0.9, 0.07], fs: [0.75, 0.9, 0.04] } },
+  kei:     { label: 'Kei',     model: 'models/Kei/kei_basic_free.model3.json',             fit: { n: [0.72, 0.78, 0.07], fs: [0.5, 0.78, 0.06] } },
 };
+// Standard (Cubism 3/4) parameter id -> legacy (Cubism 2 naming) id.
+const LEGACY_IDS = {
+  ParamAngleX:'PARAM_ANGLE_X', ParamAngleY:'PARAM_ANGLE_Y', ParamAngleZ:'PARAM_ANGLE_Z',
+  ParamEyeLOpen:'PARAM_EYE_L_OPEN', ParamEyeROpen:'PARAM_EYE_R_OPEN',
+  ParamEyeLSmile:'PARAM_EYE_L_SMILE', ParamEyeRSmile:'PARAM_EYE_R_SMILE',
+  ParamEyeBallX:'PARAM_EYE_BALL_X', ParamEyeBallY:'PARAM_EYE_BALL_Y', ParamEyeBallForm:'PARAM_EYE_BALL_FORM',
+  ParamBrowLY:'PARAM_BROW_L_Y', ParamBrowRY:'PARAM_BROW_R_Y',
+  ParamBrowLAngle:'PARAM_BROW_L_ANGLE', ParamBrowRAngle:'PARAM_BROW_R_ANGLE',
+  ParamBrowLForm:'PARAM_BROW_L_FORM', ParamBrowRForm:'PARAM_BROW_R_FORM',
+  ParamMouthForm:'PARAM_MOUTH_FORM', ParamMouthOpenY:'PARAM_MOUTH_OPEN_Y',
+  ParamCheek:'PARAM_CHEEK', ParamTere:'PARAM_TERE',
+  ParamBodyAngleX:'PARAM_BODY_ANGLE_X', ParamBodyAngleY:'PARAM_BODY_ANGLE_Y', ParamBodyAngleZ:'PARAM_BODY_ANGLE_Z',
+};
+// Per-model resolved map: standard id -> id that actually exists in the moc (or null).
+let paramMap = {};
+function buildParamMap(core) {
+  paramMap = {};
+  // NB: core.getParameterIndex() never returns -1 — it allocates a phantom
+  // slot for unknown ids — so test against the real id list instead.
+  let real = new Set();
+  try { real = new Set(core.getParameterIds ? core.getParameterIds() : core._parameterIds); } catch (e) {}
+  const has = id => real.has(id);
+  for (const std of new Set([...MOOD_PARAMS, 'ParamMouthOpenY'])) {
+    const cands = [std, LEGACY_IDS[std]];
+    if (std === 'ParamCheek') cands.push('PARAM_CHEEK_01');
+    if (std === 'ParamBodyAngleX') cands.push('PARAM_BODY_X');
+    if (std === 'ParamBodyAngleY') cands.push('PARAM_BODY_Y');
+    if (std === 'ParamBodyAngleZ') cands.push('PARAM_BODY_Z');
+    paramMap[std] = cands.find(c => c && has(c)) || null;
+  }
+}
 let mouthVal = 0, mouthTarget = 0, moodRelax = null;
 
 // VAD (hands-free)
@@ -92,9 +132,10 @@ function applyMood(core) {
     const t = (k in tgt) ? tgt[k] : restOf(k);
     const c = (k in moodCur) ? moodCur[k] : restOf(k);
     const v = moodCur[k] = c + (t - c) * 0.08; // ~0.4 s ease at 30 fps
+    const id = paramMap[k]; if (!id) continue;
     try {
-      if (EYE_KEYS.has(k)) { if (Math.abs(v - 1) > 0.002) core.multiplyParameterValueById(k, v); }
-      else if (Math.abs(v) > 0.002) core.addParameterValueById(k, v);
+      if (EYE_KEYS.has(k)) { if (Math.abs(v - 1) > 0.002) core.multiplyParameterValueById(id, v); }
+      else if (Math.abs(v) > 0.002) core.addParameterValueById(id, v);
     } catch (e) {}
   }
 }
@@ -116,16 +157,20 @@ function fitModel() {
   const mw = Math.max(base.width, 1);
   const mh = Math.max(base.height, 1);
   const fullscreen = document.body.classList.contains('fs');
+  // Per-model framing tweak: [widthMul, heightMul, yShift] for normal / fullscreen.
+  const fitCfg = (CHARACTERS[activeCharacter] || {}).fit;
+  const [fw, fh, fy] = fitCfg ? (fullscreen ? fitCfg.fs : fitCfg.n) : [1, 1, 0];
 
   // Fill the stage horizontally and vertically. The intentional overscan
   // crops the lower body while keeping the face and shoulders prominent.
-  const fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98)) / mw,
-                             (h * (fullscreen ? 1.16 : 1.04)) / mh);
+  const fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98) * fw) / mw,
+                             (h * (fullscreen ? 1.16 : 1.04) * fh) / mh);
   model.scale.set(fillScale);
   // Leave headroom under the top stage bar so the face is never covered.
-  model.position.set(w / 2, fullscreen ? -h * 0.05 : -h * 0.01);
+  model.position.set(w / 2, (fullscreen ? -h * 0.05 : -h * 0.01) + h * fy);
 }
 let characterLoadId = 0;
+let mouthParameterId = 'ParamMouthOpenY';
 async function loadCharacter(characterId) {
   const chosenId = CHARACTERS[characterId] ? characterId : 'haru';
   const chosen = CHARACTERS[chosenId];
@@ -143,13 +188,13 @@ async function loadCharacter(characterId) {
 
     const previousModel = model;
     model = nextModel;
+    activeCharacter = chosenId;
     pixiApp.stage.addChild(model);
     fitModel();
     if (previousModel) {
       pixiApp.stage.removeChild(previousModel);
       previousModel.destroy({ children: true });
     }
-    activeCharacter = chosenId;
     localStorage.setItem('veronica-character', activeCharacter);
     const picker = $('characterSelect');
     if (picker) picker.value = activeCharacter;
@@ -159,13 +204,17 @@ async function loadCharacter(characterId) {
     // Keep lip-sync frame-locked after each motion update for every model option.
     const mm = model.internalModel.motionManager;
     const origUpdate = mm.update.bind(mm);
+    const core = model.internalModel.coreModel;
+    // Resolve standard→actual parameter ids for this moc (legacy PARAM_* names
+    // on Epsilon/Tsumiki/Shizuku) so moods and lip-sync work on every model.
+    buildParamMap(core);
+    mouthParameterId = paramMap.ParamMouthOpenY;
     mm.update = (...a) => {
       const r = origUpdate(...a);
       mouthVal += (mouthTarget - mouthVal) * 0.5;
-      const core = model.internalModel.coreModel;
       applyMood(core);
-      if (playing) {
-        try { core.setParameterValueById('ParamMouthOpenY', mouthVal); } catch (e) {}
+      if (playing && mouthParameterId) {
+        try { core.setParameterValueById(mouthParameterId, mouthVal); } catch (e) {}
       }
       return r;
     };
