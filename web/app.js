@@ -10,14 +10,15 @@ let micLevel = 0;
    full-face rigging (eyes, brows, mouth form, cheeks) so the mood engine and
    lip-sync work on all of them.
    legacy=true → Cubism 2-era ids (PARAM_MOUTH_OPEN_Y …); we alias them.
-   fit = per-layout framing tweak [widthMul, heightMul, yShift] (n=normal, fs=fullscreen). */
+   fit = per-layout framing tweak [widthMul, heightMul, yShift] (n=normal, fs=fullscreen);
+   imm = immersive-mode [zoom, yShift] — height-driven, so full-body models need zoom > 1. */
 const CHARACTERS = {
-  haru:    { label: 'Haru',    model: 'models/haru/haru_greeter_t03.model3.json' },
-  hiyori:  { label: 'Hiyori',  model: 'models/Hiyori/Hiyori.model3.json' },
-  epsilon: { label: 'Epsilon', model: 'models/Epsilon/Epsilon_free.model3.json', legacy: true, fit: { n: [1.0, 1.0, 0.0],  fs: [0.72, 1.0, 0.0] } },
-  tsumiki: { label: 'Tsumiki', model: 'models/Tsumiki/tsumiki.model3.json', legacy: true, fit: { n: [1.7, 1.7, 0.0],  fs: [0.95, 1.2, -0.04] } },
-  shizuku: { label: 'Shizuku', model: 'models/Shizuku/shizuku.model3.json', legacy: true, fit: { n: [0.9, 0.9, 0.07], fs: [0.75, 0.9, 0.04] } },
-  kei:     { label: 'Kei',     model: 'models/Kei/kei_basic_free.model3.json',             fit: { n: [0.72, 0.78, 0.07], fs: [0.5, 0.78, 0.06] } },
+  haru:    { label: 'Haru',    model: 'models/haru/haru_greeter_t03.model3.json', imm: [1.9, -0.02] },
+  hiyori:  { label: 'Hiyori',  model: 'models/Hiyori/Hiyori.model3.json', imm: [1.9, -0.02] },
+  epsilon: { label: 'Epsilon', model: 'models/Epsilon/Epsilon_free.model3.json', legacy: true, fit: { n: [1.0, 1.0, 0.0],  fs: [0.72, 1.0, 0.0] }, imm: [1.25, 0.0] },
+  tsumiki: { label: 'Tsumiki', model: 'models/Tsumiki/tsumiki.model3.json', legacy: true, fit: { n: [1.7, 1.7, 0.0],  fs: [0.95, 1.2, -0.04] }, imm: [2.0, -0.03] },
+  shizuku: { label: 'Shizuku', model: 'models/Shizuku/shizuku.model3.json', legacy: true, fit: { n: [0.9, 0.9, 0.07], fs: [0.75, 0.9, 0.04] }, imm: [1.05, 0.03] },
+  kei:     { label: 'Kei',     model: 'models/Kei/kei_basic_free.model3.json',             fit: { n: [0.72, 0.78, 0.07], fs: [0.5, 0.78, 0.06] }, imm: [0.95, 0.04] },
 };
 // Standard (Cubism 3/4) parameter id -> legacy (Cubism 2 naming) id.
 const LEGACY_IDS = {
@@ -156,18 +157,23 @@ function fitModel() {
   const base = model.getLocalBounds();
   const mw = Math.max(base.width, 1);
   const mh = Math.max(base.height, 1);
-  const fullscreen = document.body.classList.contains('fs');
+  const immersive = document.body.classList.contains('imm');
+  const fullscreen = immersive || document.body.classList.contains('fs');
   // Per-model framing tweak: [widthMul, heightMul, yShift] for normal / fullscreen.
   const fitCfg = (CHARACTERS[activeCharacter] || {}).fit;
   const [fw, fh, fy] = fitCfg ? (fullscreen ? fitCfg.fs : fitCfg.n) : [1, 1, 0];
 
   // Fill the stage horizontally and vertically. The intentional overscan
   // crops the lower body while keeping the face and shoulders prominent.
-  const fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98) * fw) / mw,
-                             (h * (fullscreen ? 1.16 : 1.04) * fh) / mh);
+  let fillScale = Math.max((w * (fullscreen ? 1.04 : 0.98) * fw) / mw,
+                           (h * (fullscreen ? 1.16 : 1.04) * fh) / mh);
+  // Immersive: the stage is the whole viewport, so size by height only and
+  // apply the per-model zoom (full-body rigs need ~2x to become half-body).
+  const [iz, iy] = (CHARACTERS[activeCharacter] || {}).imm || [1.2, 0];
+  if (immersive) fillScale = (h * 1.1 / mh) * iz;
   model.scale.set(fillScale);
   // Leave headroom under the top stage bar so the face is never covered.
-  model.position.set(w / 2, (fullscreen ? -h * 0.05 : -h * 0.01) + h * fy);
+  model.position.set(w / 2, immersive ? -h * 0.02 + h * iy : (fullscreen ? -h * 0.05 : -h * 0.01) + h * fy);
 }
 let characterLoadId = 0;
 let mouthParameterId = 'ParamMouthOpenY';
@@ -299,9 +305,28 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('imm')) { setImmersive(false); return; }
   if (e.key === 'Escape' && document.body.classList.contains('fs')) {
     document.body.classList.remove('fs'); $('fsbtn').textContent = '⛶'; setTimeout(fitModel, 150);
   }
+});
+
+/* ---------------- immersive mode (body.imm) ----------------
+   Character fills the viewport; only two circular voice buttons remain. */
+function setImmersive(on) {
+  document.body.classList.toggle('imm', on);
+  if (on) {
+    document.body.classList.remove('fs'); $('fsbtn').textContent = '⛶';
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+  setTimeout(fitModel, 150); setTimeout(fitModel, 600);
+}
+$('immbtn').addEventListener('click', () => setImmersive(true));
+$('immexit').addEventListener('click', () => setImmersive(false));
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('imm')) setImmersive(false);
 });
 
 /* ---------------- Voice WS ----------------
@@ -420,19 +445,23 @@ const sendPcm = f32 => { if (ws && ws.readyState === 1) ws.send(f32.buffer); };
 const endUtterance = () => { if (ws && ws.readyState === 1) { ws.send(JSON.stringify({type:'end_utterance'})); setState('thinking'); setMood('thinking'); } };
 
 const ptt = $('ptt');
-async function pttDown(e) { e.preventDefault(); await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); capturing = true; ptt.classList.add('active'); setState('listening'); }
-function pttUp(e) { e.preventDefault(); if (!capturing) return; capturing = false; ptt.classList.remove('active'); endUtterance(); }
-ptt.addEventListener('mousedown', pttDown); ptt.addEventListener('mouseup', pttUp); ptt.addEventListener('mouseleave', pttUp);
-ptt.addEventListener('touchstart', pttDown, { passive:false }); ptt.addEventListener('touchend', pttUp); ptt.addEventListener('touchcancel', pttUp);
-ptt.addEventListener('contextmenu', e => e.preventDefault());
+const pttButtons = [ptt, $('immptt')].filter(Boolean);
+async function pttDown(e) { e.preventDefault(); await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); capturing = true; pttButtons.forEach(b => b.classList.add('active')); setState('listening'); }
+function pttUp(e) { e.preventDefault(); if (!capturing) return; capturing = false; pttButtons.forEach(b => b.classList.remove('active')); endUtterance(); }
+for (const b of pttButtons) {
+  b.addEventListener('mousedown', pttDown); b.addEventListener('mouseup', pttUp); b.addEventListener('mouseleave', pttUp);
+  b.addEventListener('touchstart', pttDown, { passive:false }); b.addEventListener('touchend', pttUp); b.addEventListener('touchcancel', pttUp);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+}
 
-$('handsfree').addEventListener('click', async () => {
+const hfButtons = [$('handsfree'), $('immhf')].filter(Boolean);
+async function toggleHandsFree() {
   handsFree = !handsFree;
-  $('handsfree').classList.toggle('active', handsFree);
-  $('handsfree').setAttribute('aria-pressed', String(handsFree));
+  hfButtons.forEach(b => { b.classList.toggle('active', handsFree); b.setAttribute('aria-pressed', String(handsFree)); });
   if (handsFree) { await startMic(); if (audioCtx.state==='suspended') await audioCtx.resume(); setState('listening'); }
   else setState('idle');
-});
+}
+hfButtons.forEach(b => b.addEventListener('click', toggleHandsFree));
 
 const tin = $('textin');
 function sendText() {

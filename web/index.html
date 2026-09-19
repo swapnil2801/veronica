@@ -6,7 +6,7 @@
 <title>VERONICA — Hermes Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body data-vstate="idle">
 <div class="app">
@@ -26,10 +26,19 @@
       <canvas id="live2d"></canvas>
       <canvas id="wave" aria-hidden="true"></canvas>
 
+      <!-- immersive mode overlay (body.imm) -->
+      <div id="immui" aria-hidden="true">
+        <button id="immexit" type="button" title="Exit immersive (Esc)" aria-label="Exit immersive mode">✕</button>
+        <div class="imm-controls">
+          <button id="immptt" type="button" class="imm-btn" aria-label="Hold to talk"><span class="ico">●</span><span class="lbl">hold</span></button>
+          <button id="immhf" type="button" class="imm-btn" aria-pressed="false" aria-label="Hands-free"><span class="ico">∞</span><span class="lbl">hands-free</span></button>
+        </div>
+      </div>
+
       <div class="stage-bar top">
         <span class="stage-caption">voice interface · ready</span>
         <span id="vstatebar"><span id="vstate" role="status" aria-live="polite">idle</span><span id="moodTag" title="How Veronica is feeling">· neutral</span></span>
-        <span class="stage-right"><span class="stage-index">01 — 2026</span><button id="fsbtn" title="Presence mode (fullscreen)" aria-label="Toggle presence mode">⛶</button></span>
+        <span class="stage-right"><span class="stage-index">01 — 2026</span><button id="immbtn" title="Immersive mode (character only)" aria-label="Immersive mode">◉</button><button id="fsbtn" title="Presence mode (fullscreen)" aria-label="Toggle presence mode">⛶</button></span>
       </div>
       <div class="stage-bar bottom">
         <div id="characterStatus">loading character…</div>
@@ -117,6 +126,6 @@
   </section>
 
 </div>
-<script src="vendor/live2dcubismcore.min.js"></script><script src="vendor/pixi.min.js"></script><script src="vendor/cubism4.min.js"></script><script src="app.js?v=14"></script>
+<script src="vendor/live2dcubismcore.min.js"></script><script src="vendor/pixi.min.js"></script><script src="vendor/cubism4.min.js"></script><script src="app.js?v=16"></script>
 </body>
 </html>

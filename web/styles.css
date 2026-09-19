@@ -47,11 +47,11 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;
 .ellip{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ---------- buttons (one system) ---------- */
-.btn,.vcontrols button,.chat-input button,.arow .abtns button,.selgroup button,#jump,#fsbtn{
+.btn,.vcontrols button,.chat-input button,.arow .abtns button,.selgroup button,#jump,#fsbtn,#immbtn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;line-height:1;
   height:var(--ctl-h);padding:0 16px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2);color:var(--ink);
   font-size:12px;font-weight:600;letter-spacing:.02em;transition:border-color .18s var(--ease),background .18s var(--ease),transform .12s var(--ease),box-shadow .18s var(--ease)}
-.btn:hover,.vcontrols button:hover,.chat-input button:hover,.arow .abtns button:hover,.selgroup button:hover,#jump:hover,#fsbtn:hover{border-color:var(--line3);background:var(--panel3)}
+.btn:hover,.vcontrols button:hover,.chat-input button:hover,.arow .abtns button:hover,.selgroup button:hover,#jump:hover,#fsbtn:hover,#immbtn:hover{border-color:var(--line3);background:var(--panel3)}
 .btn:active,.vcontrols button:active,.chat-input button:active,.arow .abtns button:active,.selgroup button:active{transform:translateY(1px)}
 .btn-primary,#ptt,.chat-input button{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:800;letter-spacing:.04em}
 .btn-primary:hover,#ptt:hover,.chat-input button:hover{background:#e3d2ad;border-color:#e3d2ad;box-shadow:0 6px 22px rgba(216,196,156,.18)}
@@ -120,7 +120,8 @@ body[data-mood=thinking] #moodTag,body[data-mood=neutral] #moodTag{color:var(--m
 body[data-vstate=listening] #vstate::before{background:var(--accent2);box-shadow:0 0 10px var(--accent2);animation:blink 1s infinite}
 body[data-vstate=thinking] #vstate::before{background:var(--accent);animation:blink .6s infinite}
 body[data-vstate=speaking] #vstate::before{background:var(--accent);box-shadow:0 0 10px var(--accent)}
-#fsbtn{height:28px;width:28px;padding:0;border-radius:8px;background:rgba(9,10,9,.68);font-size:13px;font-weight:400}
+#fsbtn,#immbtn{height:28px;width:28px;padding:0;border-radius:8px;background:rgba(9,10,9,.68);font-size:13px;font-weight:400}
+#immbtn{margin-right:6px}
 #characterStatus{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;height:30px;padding:0 11px;color:var(--muted);font:10px/1 var(--mono);background:rgba(9,10,9,.78);border:1px solid var(--line);border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
 .character-lab{flex:0 0 auto;display:flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 12px;background:rgba(9,10,9,.82);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(10px)}
 .character-lab label{color:var(--faint);font:9px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
@@ -344,3 +345,49 @@ body.fs #stage{min-height:0}
 @keyframes ringout{0%{transform:scale(.5);opacity:.8}100%{transform:scale(1.6);opacity:0}}
 @keyframes fadein{from{opacity:0;transform:translateY(5px)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+
+/* ============================================================
+   IMMERSIVE MODE  (body.imm) — character fills the viewport,
+   only two circular voice buttons + a tiny exit remain.
+   ============================================================ */
+#immui{display:none}
+body.imm{overflow:hidden;background:#07080a}
+body.imm .app{display:block;height:100vh;padding:0}
+body.imm .vcol{padding:0;height:100vh}
+body.imm .chat-panel,body.imm .ops,body.imm .vhead,body.imm .hero-label,body.imm .mood-row,body.imm .vcontrols,
+body.imm .stage-bar,body.imm .hud,body.imm .scan,body.imm #rings,body.imm #wave{display:none!important}
+body.imm #stage{position:fixed;inset:0;width:100vw;height:100vh;border:0;border-radius:0;min-height:0;box-shadow:none;
+  background:radial-gradient(ellipse at 50% 35%,rgba(145,184,163,.16),transparent 55%),#07080a}
+body.imm #stage::before{display:none}
+body.imm #stage::after{background:radial-gradient(circle at 50% 40%,transparent 0,transparent 55%,rgba(0,0,0,.55) 100%)}
+body.imm #live2d{filter:drop-shadow(0 30px 50px rgba(0,0,0,.7))}
+body.imm #immui{display:block;position:fixed;inset:0;z-index:20;pointer-events:none}
+#immexit{pointer-events:auto;position:absolute;top:18px;right:18px;width:38px;height:38px;border-radius:50%;
+  border:1px solid var(--line2);background:rgba(9,10,9,.55);color:var(--muted);font:400 15px/1 var(--sans);cursor:pointer;
+  backdrop-filter:blur(8px);opacity:.55;transition:opacity .2s,border-color .2s,color .2s}
+#immexit:hover{opacity:1;color:var(--ink);border-color:var(--line3)}
+.imm-controls{pointer-events:auto;position:absolute;left:0;right:0;bottom:max(34px,env(safe-area-inset-bottom,0px) + 24px);
+  display:flex;justify-content:center;align-items:center;gap:clamp(28px,6vw,72px)}
+.imm-btn{position:relative;width:clamp(96px,12.5vmin,132px);height:clamp(96px,12.5vmin,132px);border-radius:50%;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border:1px solid var(--line2);background:rgba(17,18,17,.72);color:var(--ink);backdrop-filter:blur(12px);
+  box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);
+  user-select:none;-webkit-user-select:none;touch-action:none;transition:transform .18s var(--ease),border-color .2s,background .2s,box-shadow .2s}
+.imm-btn .ico{font-size:clamp(22px,3.2vmin,32px);line-height:1}
+.imm-btn .lbl{font:500 9px/1 var(--mono);letter-spacing:.1em;white-space:nowrap;text-transform:uppercase;color:var(--muted)}
+.imm-btn:hover{border-color:var(--line3);background:rgba(30,31,28,.82);transform:translateY(-2px)}
+.imm-btn:active{transform:scale(.96)}
+#immptt{border-color:var(--accent-line);background:linear-gradient(180deg,rgba(216,196,156,.22),rgba(216,196,156,.08)),rgba(17,18,17,.75)}
+#immptt .ico{color:var(--accent)}
+#immptt.active{background:var(--accent2);border-color:var(--accent2);color:var(--accent-ink);
+  box-shadow:0 0 0 8px rgba(145,184,163,.18),0 0 60px rgba(145,184,163,.35);animation:immpulse 1.4s ease-in-out infinite}
+#immptt.active .ico,#immptt.active .lbl{color:var(--accent-ink)}
+#immhf.active{border-color:var(--accent2);color:var(--accent2);background:rgba(145,184,163,.14);
+  box-shadow:0 0 0 6px rgba(145,184,163,.12),0 0 46px rgba(145,184,163,.25)}
+#immhf.active .ico{color:var(--accent2)}
+#immhf.active .lbl{color:var(--accent2)}
+@keyframes immpulse{0%,100%{box-shadow:0 0 0 8px rgba(145,184,163,.18),0 0 60px rgba(145,184,163,.35)}50%{box-shadow:0 0 0 14px rgba(145,184,163,.08),0 0 80px rgba(145,184,163,.45)}}
+/* mirror the speaking / listening state as a faint glow behind the character */
+body.imm[data-vstate="speaking"] #stage{background:radial-gradient(ellipse at 50% 35%,rgba(216,196,156,.2),transparent 55%),#07080a}
+body.imm[data-vstate="listening"] #stage{background:radial-gradient(ellipse at 50% 35%,rgba(145,184,163,.24),transparent 55%),#07080a}
