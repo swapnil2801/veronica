@@ -203,6 +203,13 @@ PROVIDERS = {
                                  "~/.hermes/profiles/technologia/.env"),
         "default_model": "gpt-5.6-luna",
     },
+    "apinex": {
+        "label": "APInex — Gpt 6 Luna (free)",
+        "base_url": "https://api.apinex.bond/v1",
+        "api_key": _read_env_key("APINEX_API_KEY", "~/.hermes/.env",
+                                 "~/.hermes/profiles/default/.env"),
+        "default_model": "free/gpt-6-luna",
+    },
 }
 
 MOODS = ("neutral", "happy", "warm", "excited", "playful", "shy", "thinking", "concerned", "sad", "surprised")
