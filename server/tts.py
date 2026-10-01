@@ -119,6 +119,60 @@ async def _synth_sarvam(text: str, voice: str | None = None) -> bytes:
         return base64.b64decode(audios[0])
 
 
+async def _pcm_to_mp3(pcm: bytes, rate: int) -> bytes:
+    """Wrap raw signed-16-bit little-endian mono PCM as MP3 via ffmpeg."""
+    cmd = (
+        f"ffmpeg -v error -f s16le -ar {rate} -ac 1 -i - "
+        f"-codec:a libmp3lame -b:a 96k -f mp3 -"
+    )
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, err = await asyncio.wait_for(proc.communicate(pcm), timeout=30)
+    if proc.returncode != 0 or not out:
+        raise RuntimeError(f"pcm->mp3 failed: {err.decode()[:150]}")
+    return out
+
+
+async def _synth_gemini(text: str, voice: str | None = None) -> bytes:
+    """Google Gemini TTS (AI Studio) -> MP3 bytes. Returns raw PCM, wrapped via ffmpeg."""
+    key = config.get_gemini_key()
+    if not key:
+        raise RuntimeError("Gemini API key is not configured")
+    v = voice or config.get_gemini_voice()
+    prompt = config.GEMINI_STYLE + text
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{config.GEMINI_TTS_MODEL}:generateContent")
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.post(
+            url,
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "responseModalities": ["AUDIO"],
+                    "speechConfig": {
+                        "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": v}}
+                    },
+                },
+            },
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"gemini {r.status_code}: {r.text[:200]}")
+        data = r.json()
+        try:
+            part = data["candidates"][0]["content"]["parts"][0]["inlineData"]
+            pcm = base64.b64decode(part["data"])
+        except (KeyError, IndexError, TypeError) as e:
+            raise RuntimeError(f"gemini: no audio in response ({e})")
+    if not pcm:
+        raise RuntimeError("Gemini returned empty audio")
+    return await _pcm_to_mp3(pcm, config.GEMINI_PCM_RATE)
+
+
 async def _synth_edge(text: str) -> bytes:
     for voice in (config.get_voice(), config.TTS_FALLBACK_VOICE):
         try:
@@ -137,7 +191,12 @@ async def _synth_edge(text: str) -> bytes:
 async def synthesize(text: str) -> bytes:
     """Synthesize one utterance to MP3 bytes. Raises on total failure."""
     engine = config.get_tts_engine()
-    if engine == "cartesia":
+    if engine == "gemini":
+        try:
+            return await _synth_gemini(text)
+        except Exception as e:  # noqa: BLE001
+            log.warning("gemini failed (%s) -> edge fallback", e)
+    elif engine == "cartesia":
         try:
             return await _synth_cartesia(text)
         except Exception as e:  # noqa: BLE001

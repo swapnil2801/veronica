@@ -594,6 +594,7 @@ function renderEngines() {
     { id:'deepgram', label:'Deepgram Aura', meta:curSettings.deepgram_tts_available ? 'cloud · fast voice agent' : 'not configured', ok:curSettings.deepgram_tts_available },
     { id:'cartesia', label:'Cartesia Sonic', meta:curSettings.cartesia_available ? 'cloud · expressive voice' : 'not configured', ok:curSettings.cartesia_available },
     { id:'sarvam', label:'Sarvam Bulbul', meta:curSettings.sarvam_available ? 'cloud · Indian voices · Hinglish' : 'not configured', ok:curSettings.sarvam_available },
+    { id:'gemini', label:'Gemini TTS', meta:curSettings.gemini_available ? 'free tier · Google AI Studio · expressive' : 'no API key', ok:curSettings.gemini_available },
   ];
   for (const e of engines) {
     const d = document.createElement('div');
@@ -628,12 +629,14 @@ function renderVoices() {
              : eng === 'deepgram' ? curSettings.deepgram_tts_voices
              : eng === 'cartesia' ? curSettings.cartesia_voices
              : eng === 'sarvam' ? curSettings.sarvam_voices
+             : eng === 'gemini' ? curSettings.gemini_voices
              : curSettings.voices;
   const active = eng === 'elevenlabs' ? curSettings.el_voice
                : eng === 'piper' ? curSettings.piper_voice
                : eng === 'deepgram' ? curSettings.deepgram_tts_model
                : eng === 'cartesia' ? curSettings.cartesia_voice
                : eng === 'sarvam' ? curSettings.sarvam_voice
+               : eng === 'gemini' ? curSettings.gemini_voice
                : curSettings.voice;
   for (const v of list) {
     const o = document.createElement('option');
@@ -670,6 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (curSettings.tts_engine === 'deepgram') { curSettings.deepgram_tts_model = e.target.value; saveSettings({ deepgram_tts_model: e.target.value }); }
     else if (curSettings.tts_engine === 'cartesia') { curSettings.cartesia_voice = e.target.value; saveSettings({ cartesia_voice: e.target.value }); }
     else if (curSettings.tts_engine === 'sarvam') { curSettings.sarvam_voice = e.target.value; saveSettings({ sarvam_voice: e.target.value }); }
+    else if (curSettings.tts_engine === 'gemini') { curSettings.gemini_voice = e.target.value; saveSettings({ gemini_voice: e.target.value }); }
     else { curSettings.voice = e.target.value; saveSettings({ voice: e.target.value }); }
   });
   $('previewVoice').addEventListener('click', async () => {

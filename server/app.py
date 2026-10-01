@@ -84,6 +84,9 @@ async def api_settings():
         "sarvam_voice": config.get_sarvam_voice(),
         "sarvam_voices": config.SARVAM_VOICE_OPTIONS,
         "sarvam_available": bool(config.get_sarvam_key()),
+        "gemini_voice": config.get_gemini_voice(),
+        "gemini_voices": config.GEMINI_VOICE_OPTIONS,
+        "gemini_available": bool(config.get_gemini_key()),
         "stt_engine": config.get_stt_engine(),
         "stt_options": [
             {"id": "deepgram", "label": "Deepgram Flux", "meta": "fast cloud transcription", "available": bool(config.DEEPGRAM_API_KEY)},
@@ -123,7 +126,7 @@ async def api_set_settings(payload: dict):
         changed["model"] = payload["model"].strip()
     if "voice" in payload and isinstance(payload["voice"], str) and payload["voice"].strip():
         changed["voice"] = payload["voice"].strip()
-    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram", "cartesia", "sarvam"):
+    if "tts_engine" in payload and payload["tts_engine"] in ("edge", "elevenlabs", "piper", "deepgram", "cartesia", "sarvam", "gemini"):
         changed["tts_engine"] = payload["tts_engine"]
     if "el_voice" in payload and isinstance(payload["el_voice"], str) and payload["el_voice"].strip():
         changed["el_voice"] = payload["el_voice"].strip()
@@ -140,6 +143,8 @@ async def api_set_settings(payload: dict):
         changed["sarvam_voice"] = payload["sarvam_voice"]
     if "cartesia_voice" in payload and isinstance(payload["cartesia_voice"], str) and payload["cartesia_voice"].strip():
         changed["cartesia_voice"] = payload["cartesia_voice"].strip()
+    if "gemini_voice" in payload and payload["gemini_voice"] in {v["id"] for v in config.GEMINI_VOICE_OPTIONS}:
+        changed["gemini_voice"] = payload["gemini_voice"]
 
     if changed:
         config.save_settings(changed)
@@ -148,7 +153,8 @@ async def api_set_settings(payload: dict):
             "voice": config.get_voice(), "tts_engine": config.get_tts_engine(),
             "el_voice": config.get_el_voice(), "piper_voice": config.get_piper_voice(),
             "stt_engine": config.get_stt_engine(), "deepgram_tts_model": config.get_deepgram_tts_model(),
-            "cartesia_voice": config.get_cartesia_voice(), "sarvam_voice": config.get_sarvam_voice()}
+            "cartesia_voice": config.get_cartesia_voice(), "sarvam_voice": config.get_sarvam_voice(),
+            "gemini_voice": config.get_gemini_voice()}
 
 
 @app.post("/api/settings/preview_voice")
@@ -191,6 +197,10 @@ async def api_preview_voice(payload: dict):
         if engine == "sarvam":
             from . import tts as tts_mod
             audio = await tts_mod._synth_sarvam(text, payload.get("voice"))
+            return Response(content=audio, media_type="audio/mpeg")
+        if engine == "gemini":
+            from . import tts as tts_mod
+            audio = await tts_mod._synth_gemini(text, payload.get("voice"))
             return Response(content=audio, media_type="audio/mpeg")
         voice = (payload.get("voice") or config.get_voice()).strip()
         import edge_tts

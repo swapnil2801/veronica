@@ -12,7 +12,7 @@ from . import bridge, config, memory
 log = logging.getLogger("veronica.brain")
 
 MAX_TOOL_ROUNDS = 5
-_MOOD_RE = re.compile(r"^\s*\[(\w+)\]\s*")
+_MOOD_RE = re.compile(r"^\s*\[\s*(\w+)\s*\]\s*")
 _TOOLS = {**bridge.TOOLS, **memory.TOOLS}
 _TOOL_SPECS = bridge.TOOL_SPECS + memory.TOOL_SPECS
 
@@ -81,7 +81,8 @@ class Brain:
         ctx = memory.session_context()
         prompt = (
             f"[system event] Boss just opened the app. Context: {memory.describe_gap(ctx['seconds_since_last'])}. "
-            "Greet him in ONE short natural sentence (two at most) as yourself, like someone who's glad he's back. "
+            "Greet him in ONE short natural sentence (two at most) as yourself — like someone who genuinely missed him and is glad he's back. "
+            "Let a little real feeling show (soft, warm, maybe relieved), scaled to how long he's been gone. "
             "Reference something real from your notes or the last conversation if there is one; otherwise just be warm. "
             "Do not call any tools. Do not ask more than one question."
         )
